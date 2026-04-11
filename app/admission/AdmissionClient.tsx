@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { FileText, Users, Calendar, IndianRupee, Book, CheckCircle, Award, Phone } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FileText, Users, Calendar, IndianRupee, Book, CheckCircle, Award, Phone, X, Send } from "lucide-react";
 
 const admissionSteps = [
   { step: 1, title: "Enquiry", description: "Fill out the enquiry form or visit our center for information", icon: FileText },
@@ -45,6 +46,41 @@ const benefits = [
 ];
 
 export default function AdmissionClient() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    course: "",
+    message: "",
+  });
+
+  const openModal = (course: string) => {
+    setSelectedCourse(course);
+    setFormData((prev) => ({ ...prev, course }));
+    setIsModalOpen(true);
+    document.body.style.overflow = "hidden";
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    document.body.style.overflow = "";
+    setFormData({ name: "", phone: "", email: "", course: "", message: "" });
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const whatsappMessage = `*Enrollment Enquiry - RankerHub*%0A%0A*Name:* ${formData.name}%0A*Phone:* ${formData.phone}%0A*Email:* ${formData.email}%0A*Course:* ${formData.course}%0A*Message:* ${formData.message || "N/A"}`;
+    const whatsappUrl = `https://wa.me/919272547817?text=${whatsappMessage}`;
+    closeModal();
+    window.open(whatsappUrl, "_blank");
+  };
+
   return (
     <div className="pt-32 pb-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -129,9 +165,12 @@ export default function AdmissionClient() {
                     </div>
                     <p className="text-gray-600 leading-relaxed mt-6 mb-8 text-sm">{fee.description}</p>
                   </div>
-                  <a href="/contact" className="block w-full bg-secondary text-primary font-bold tracking-widest uppercase text-center py-4 rounded-full hover:bg-primary hover:text-white transition-all shadow-md mt-auto">
+                  <button
+                    onClick={() => openModal(fee.category)}
+                    className="block w-full bg-secondary text-primary font-bold tracking-widest uppercase text-center py-4 rounded-full hover:bg-primary hover:text-white transition-all shadow-md mt-auto cursor-pointer"
+                  >
                     Apply Now
-                  </a>
+                  </button>
                 </div>
               </motion.div>
             ))}
@@ -189,6 +228,150 @@ export default function AdmissionClient() {
         </motion.div>
 
       </div>
+
+      {/* Enrollment Enquiry Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            onClick={closeModal}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden z-10"
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-br from-primary to-indigo-800 p-6 sm:p-8 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/20 rounded-full translate-y-1/2 -translate-x-1/2" />
+                <button
+                  onClick={closeModal}
+                  className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <div className="relative z-10">
+                  <h3 className="text-2xl sm:text-3xl font-black tracking-tight mb-1">Enrollment Enquiry</h3>
+                  <p className="text-white/70 text-sm font-medium">Fill in your details and we&apos;ll connect with you on WhatsApp</p>
+                </div>
+              </div>
+
+              {/* Modal Form */}
+              <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
+                {/* Name */}
+                <div>
+                  <label htmlFor="enroll-name" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="enroll-name"
+                    type="text"
+                    name="name"
+                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label htmlFor="enroll-phone" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="enroll-phone"
+                    type="tel"
+                    name="phone"
+                    required
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="Enter your phone number"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label htmlFor="enroll-email" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Email Address
+                  </label>
+                  <input
+                    id="enroll-email"
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="Enter your email (optional)"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                  />
+                </div>
+
+                {/* Course */}
+                <div>
+                  <label htmlFor="enroll-course" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Course <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="enroll-course"
+                    name="course"
+                    required
+                    value={formData.course}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled>Select a course</option>
+                    <option value="11th Commerce">11th Commerce</option>
+                    <option value="12th Commerce">12th Commerce</option>
+                    <option value="Weekend Batch">Weekend Batch</option>
+                  </select>
+                </div>
+
+                {/* Message */}
+                <div>
+                  <label htmlFor="enroll-message" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Message (Optional)
+                  </label>
+                  <textarea
+                    id="enroll-message"
+                    name="message"
+                    rows={3}
+                    value={formData.message}
+                    onChange={handleChange}
+                    placeholder="Any questions or additional info..."
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm resize-none"
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold tracking-wide py-4 rounded-xl transition-all shadow-lg hover:shadow-green-500/30 cursor-pointer text-sm uppercase"
+                >
+                  <Send className="h-5 w-5" />
+                  Submit & Connect on WhatsApp
+                </button>
+
+                <p className="text-center text-xs text-gray-400 mt-2">
+                  You will be redirected to WhatsApp to complete your enquiry
+                </p>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

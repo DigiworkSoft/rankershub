@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown, X, Send } from "lucide-react";
 import EnquiryForm from "../_components/EnquiryForm";
 
 const WHATSAPP_NUMBER = "919272547817";
+
+const SYLLABUS_PDF_MAP: Record<string, string> = {
+  "11th-commerce": "/assets/PDF/11th_Commerce_Regular_Syllabus.pdf",
+  "12th-commerce": "/assets/PDF/12th_Commerce_Boards_Syllabus.pdf",
+};
 
 const defaultBatches = [
   {
@@ -14,7 +19,7 @@ const defaultBatches = [
     subtitle: "Foundation for Excellence",
     description: "A comprehensive course designed to build strong fundamentals in Accountancy, Economics, and Business Studies.",
     benefits: ["Conceptual clarity from scratch", "Regular chapter-wise tests", "Exclusive study materials", "Career guidance sessions"],
-    syllabus: ["Book-keeping & Accountancy", "Economics", "Organization of Commerce", "Secretarial Practice", "Mathematics / IT"],
+    syllabus: ["Book-keeping & Accountancy", "Mathematics"],
     duration: "1 Year",
     timing: "Morning & Evening Batches",
   },
@@ -24,7 +29,7 @@ const defaultBatches = [
     subtitle: "Target 95%+",
     description: "Intensive preparation for Board Exams with focus on scoring techniques, time management, and mock exams.",
     benefits: ["Board-specific test series", "Previous year paper solving", "One-on-one doubt sessions", "Stress management workshops"],
-    syllabus: ["Advanced Accountancy", "Macro & Micro Economics", "Business Management", "Company Law Basics", "Maths / SP"],
+    syllabus: ["Book-keeping & Accountancy", "Mathematics"],
     duration: "1 Year",
     timing: "Flexible Batches",
   },
@@ -97,6 +102,82 @@ function youtubeIdFromUrl(url: string): string {
 export default function BatchesClient({ videos, faqs, courses }: BatchesClientProps) {
   const [openSyllabusKey, setOpenSyllabusKey] = useState<string | null>(null);
   const [openFaqKey, setOpenFaqKey] = useState<string | null>(null);
+
+  // Syllabus PDF enquiry modal state
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfModalBatchId, setPdfModalBatchId] = useState("");
+  const [pdfModalBatchTitle, setPdfModalBatchTitle] = useState("");
+  const [pdfFormStatus, setPdfFormStatus] = useState<"idle" | "submitting">("idle");
+  const [pdfFormData, setPdfFormData] = useState({
+    full_name: "",
+    phone_number: "",
+    batch: "",
+    message: "",
+  });
+
+  const openSyllabusModal = (batchId: string, batchTitle: string) => {
+    setPdfModalBatchId(batchId);
+    setPdfModalBatchTitle(batchTitle);
+    setPdfFormData({ full_name: "", phone_number: "", batch: batchTitle, message: "Syllabus PDF Download" });
+    setPdfModalOpen(true);
+    document.body.style.overflow = "hidden";
+  };
+
+  const closeSyllabusModal = () => {
+    setPdfModalOpen(false);
+    document.body.style.overflow = "";
+    setPdfFormData({ full_name: "", phone_number: "", batch: "", message: "" });
+    setPdfFormStatus("idle");
+  };
+
+  const handlePdfFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPdfFormStatus("submitting");
+    try {
+      const res = await fetch("/api/enquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pdfFormData),
+      });
+
+      if (!res.ok) throw new Error("Failed");
+
+      // Show success state briefly
+      setPdfFormStatus("idle");
+      const successDiv = document.createElement("div");
+      successDiv.className = "fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm";
+      successDiv.innerHTML = `
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
+          <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h3 class="text-2xl font-bold text-gray-900 mb-2">Enquiry Sent!</h3>
+          <p class="text-gray-600 mb-6">Your syllabus download has started. Our team will contact you soon.</p>
+        </div>
+      `;
+      document.body.appendChild(successDiv);
+
+      // Auto-download the PDF
+      const pdfUrl = SYLLABUS_PDF_MAP[pdfModalBatchId];
+      if (pdfUrl) {
+        const link = document.createElement("a");
+        link.href = pdfUrl;
+        link.download = pdfUrl.split("/").pop() || "syllabus.pdf";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      setTimeout(() => {
+        document.body.removeChild(successDiv);
+        closeSyllabusModal();
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+      setPdfFormStatus("idle");
+      alert("Error submitting enquiry. Please try again.");
+    }
+  };
 
   const displayBatches = useMemo(() => {
     const dbBatches = courses.map((c) => ({
@@ -207,9 +288,14 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     <button onClick={() => openWhatsAppForCourse(batch.title)} className="btn-primary w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 flex items-center justify-center gap-2 uppercase tracking-widest text-sm">
                       Enroll Now <ArrowRight className="w-5 h-5" />
                     </button>
-                    <button className="bg-gray-50 text-gray-700 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center justify-center gap-2 border border-gray-100 text-sm">
-                      <Download className="w-5 h-5" /> Syllabus PDF
-                    </button>
+                    {SYLLABUS_PDF_MAP[batch.id] && (
+                      <button
+                        onClick={() => openSyllabusModal(batch.id, batch.title)}
+                        className="bg-gray-50 text-gray-700 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center justify-center gap-2 border border-gray-100 text-sm cursor-pointer"
+                      >
+                        <Download className="w-5 h-5" /> Syllabus PDF
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -353,6 +439,101 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
           </div>
         </div>
       </div>
+      {/* Syllabus PDF Quick Enquiry Modal */}
+      <AnimatePresence>
+        {pdfModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            onClick={closeSyllabusModal}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden z-10"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-br from-primary to-indigo-800 p-6 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/20 rounded-full translate-y-1/2 -translate-x-1/2" />
+                <button
+                  onClick={closeSyllabusModal}
+                  className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                      <Download className="h-5 w-5 text-secondary" />
+                    </div>
+                    <h3 className="text-2xl font-black tracking-tight">Quick Enquiry</h3>
+                  </div>
+                  <p className="text-white/70 text-sm font-medium">Fill in your details to download the <span className="text-secondary font-bold">{pdfModalBatchTitle}</span> syllabus</p>
+                </div>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handlePdfFormSubmit} className="p-6 space-y-4">
+                <div>
+                  <label htmlFor="pdf-name" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Full Name <span className="text-red-500">*</span></label>
+                  <input
+                    id="pdf-name"
+                    type="text"
+                    required
+                    value={pdfFormData.full_name}
+                    onChange={(e) => setPdfFormData({ ...pdfFormData, full_name: e.target.value })}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="pdf-phone" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Phone Number <span className="text-red-500">*</span></label>
+                  <input
+                    id="pdf-phone"
+                    type="tel"
+                    required
+                    value={pdfFormData.phone_number}
+                    onChange={(e) => setPdfFormData({ ...pdfFormData, phone_number: e.target.value })}
+                    placeholder="+91 XXXXX XXXXX"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Batch</label>
+                  <div className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-700 text-sm font-semibold">
+                    {pdfModalBatchTitle}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={pdfFormStatus === "submitting"}
+                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-indigo-700 hover:from-indigo-700 hover:to-primary text-white font-bold tracking-wide py-4 rounded-xl transition-all shadow-lg hover:shadow-primary/30 cursor-pointer text-sm uppercase disabled:opacity-60"
+                >
+                  <Download className="h-5 w-5" />
+                  {pdfFormStatus === "submitting" ? "Processing..." : "Download Syllabus PDF"}
+                </button>
+
+                <p className="text-center text-xs text-gray-400">
+                  Your details help us serve you better
+                </p>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
