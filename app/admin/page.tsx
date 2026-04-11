@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Send, Book, FileText, CheckCircle, Clock, Trash2, RefreshCw, PlayCircle } from "lucide-react";
 
 export default function AdminPage() {
-  const [token, setToken] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
@@ -23,11 +24,17 @@ export default function AdminPage() {
   const [customTagInput, setCustomTagInput] = useState("");
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("admin_token");
-    if (savedToken) setToken(savedToken);
+    fetch("/api/admin/verify", { credentials: "include" })
+      .then((res) => {
+        if (res.ok) setIsAuthenticated(true);
+      })
+      .finally(() => setAuthChecked(true));
   }, []);
 
-  const logout = () => { localStorage.removeItem("admin_token"); setToken(null); };
+  const logout = async () => {
+    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+    setIsAuthenticated(false);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,12 +44,12 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(loginForm),
       });
       const data = await res.json();
-      if (res.ok && data.token) {
-        localStorage.setItem("admin_token", data.token);
-        setToken(data.token);
+      if (res.ok && data.success) {
+        setIsAuthenticated(true);
       } else {
         setLoginError(data.error || "Login failed");
       }
@@ -53,7 +60,7 @@ export default function AdminPage() {
   const authedFetch = async (url: string, options: RequestInit = {}) => {
     const res = await fetch(url, {
       ...options,
-      headers: { ...options.headers, Authorization: `Bearer ${token}` },
+      credentials: "include",
     });
     if (res.status === 401) logout();
     return res;
@@ -67,14 +74,14 @@ export default function AdminPage() {
   const fetchFaqs = async () => { const res = await fetch("/api/faqs"); const data = await res.json(); setFaqs(data || []); };
 
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     if (activeTab === "enquiries") fetchEnquiries();
     if (activeTab === "courses") fetchCourses();
     if (activeTab === "blogs") fetchBlogs();
     if (activeTab === "videos") fetchVideos();
     if (activeTab === "admissions") fetchAdmissions();
     if (activeTab === "faqs") fetchFaqs();
-  }, [activeTab, token]);
+  }, [activeTab, isAuthenticated]);
 
   const handleCourseUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,13 +151,21 @@ export default function AdminPage() {
     } catch { alert("Failed to add FAQ"); }
   };
 
-  const handleDeleteEnquiry = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/enquiries/${id}`, { method: "DELETE" }); fetchEnquiries(); };
+  const handleDeleteEnquiry = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/enquiries?id=${id}`, { method: "DELETE" }); fetchEnquiries(); };
   const handleDeleteCourse = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/courses?id=${id}`, { method: "DELETE" }); fetchCourses(); };
   const handleDeleteBlog = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/blogs?id=${id}`, { method: "DELETE" }); fetchBlogs(); };
   const handleDeleteVideo = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/videos?id=${id}`, { method: "DELETE" }); fetchVideos(); };
   const handleDeleteFaq = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/faqs?id=${id}`, { method: "DELETE" }); fetchFaqs(); };
 
-  if (!token) {
+  if (!authChecked) {
+    return (
+      <div className="pt-24 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return (
       <div className="pt-24 min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">

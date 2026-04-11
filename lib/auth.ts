@@ -1,7 +1,13 @@
 import crypto from 'crypto';
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_development_only';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is not set. Refusing to start with an insecure default.");
+  }
+  return secret;
+}
 
 export interface AdminPayload {
   id: number;
@@ -9,22 +15,30 @@ export interface AdminPayload {
 }
 
 export function signToken(payload: AdminPayload): string {
-  // Always use a secret for signing
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "12h" });
 }
 
 export function verifyToken(token: string): AdminPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as AdminPayload;
+    return jwt.verify(token, getJwtSecret()) as AdminPayload;
   } catch {
     return null;
   }
 }
 
-export function getTokenFromHeader(request: Request): string | null {
+export function getTokenFromRequest(request: Request): string | null {
+  // Check Authorization header first
   const auth = request.headers.get("authorization");
-  if (!auth || !auth.startsWith("Bearer ")) return null;
-  return auth.slice(7);
+  if (auth?.startsWith("Bearer ")) return auth.slice(7);
+
+  // Check httpOnly cookie
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) {
+    const match = cookieHeader.match(/admin_token=([^;]+)/);
+    if (match) return match[1];
+  }
+
+  return null;
 }
 
 // Utility to generate a secure secret if needed (informative)

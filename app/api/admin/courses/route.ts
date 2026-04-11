@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { verifyToken, getTokenFromHeader } from "@/lib/auth";
+import { verifyToken, getTokenFromRequest } from "@/lib/auth";
+import { validateUploadedFile, sanitizeFilename } from "@/lib/upload";
 import fs from "fs";
 import path from "path";
 
@@ -11,7 +12,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 export async function POST(request: Request) {
-  const token = getTokenFromHeader(request);
+  const token = getTokenFromRequest(request);
   if (!token || !verifyToken(token)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -28,10 +29,13 @@ export async function POST(request: Request) {
 
     let image_url: string | null = null;
 
-    // Handle local file saving
     if (file && file.size > 0) {
-      const ext = file.name.split(".").pop();
-      const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      const validation = validateUploadedFile(file);
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
+
+      const filename = sanitizeFilename("course", file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = path.join(uploadDir, filename);
 
@@ -53,7 +57,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const token = getTokenFromHeader(request);
+  const token = getTokenFromRequest(request);
   if (!token || !verifyToken(token)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

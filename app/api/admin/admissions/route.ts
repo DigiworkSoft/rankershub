@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { verifyToken, getTokenFromHeader } from "@/lib/auth";
+import { verifyToken, getTokenFromRequest } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const token = getTokenFromHeader(request);
+  const token = getTokenFromRequest(request);
   if (!token || !verifyToken(token)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

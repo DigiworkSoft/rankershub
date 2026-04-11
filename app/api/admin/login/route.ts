@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { signToken } from "@/lib/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const { success } = rateLimit(`login:${ip}`, { limit: 5, windowMs: 300_000 });
+  if (!success) {
+    return NextResponse.json({ error: "Too many login attempts. Please try again later." }, { status: 429 });
+  }
+
   try {
     const { username, password } = await request.json();
 
@@ -33,11 +40,20 @@ export async function POST(request: Request) {
     // Sign and issue JWT
     const token = signToken({ id: admin.id, username: admin.username });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
-      token,
       user: { username: admin.username }
     });
+
+    response.cookies.set("admin_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 12 * 60 * 60, // 12 hours
+      path: "/",
+    });
+
+    return response;
 
   } catch (err: any) {
     console.error("Login error:", err);

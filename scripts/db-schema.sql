@@ -82,10 +82,8 @@ CREATE TABLE IF NOT EXISTS faqs (
 
 -- ============================================================
 -- Seed admin accounts
--- Passwords: admin -> admin123, sanket -> sanket
 -- ============================================================
 INSERT INTO admins (username, password_hash)
 VALUES 
-  ('admin', '$2b$10$84VN.6LPuK6L/eBSD.IX7.vcSAQQb5.K6vxXq5V4zL7UHUxNRSboW'),
-  ('sanket', '$2b$10$rf/Bmuwly6EcYkA7O.V4OeUi2GwFBk/jg0sxq0DJGldEaXAZ0q1uq')
+  ('admin', '$2b$10$84VN.6LPuK6L/eBSD.IX7.vcSAQQb5.K6vxXq5V4zL7UHUxNRSboW')
 ON CONFLICT (username) DO NOTHING;

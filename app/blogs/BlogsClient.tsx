@@ -16,48 +16,11 @@ type BlogPost = {
   created_at: string;
 };
 
-const fallbackPosts: BlogPost[] = [
-  {
-    id: 9001,
-    title: "11th Commerce Maths: Strong Start Plan for First 60 Days",
-    content:
-      "If you are in 11th Commerce, your Maths success depends on consistency in the first two months. Focus on basic algebra, ratio-proportion, and daily 45-minute practice. Keep one error notebook and revise mistakes every Sunday.",
-    author: "Rankers Hub Faculty",
-    image_url: null,
-    tags: ["Maths", "Study Plan"],
-    created_at: "2026-04-01T00:00:00.000Z"
-  },
-  {
-    id: 9002,
-    title: "12th Accounts Board Strategy: How to Score 90+",
-    content:
-      "In Accountancy, marks come from format accuracy and stepwise working. Practice final accounts, partnership adjustments, and company accounts with timed tests. Use past papers and always show narration where required.",
-    author: "Accounts Mentor Team",
-    image_url: null,
-    tags: ["Accounts", "Boards"],
-    created_at: "2026-04-03T00:00:00.000Z"
-  },
-  {
-    id: 9003,
-    title: "Commerce Boards Revision Timetable for Maths + Accounts",
-    content:
-      "Create a 7-day revision cycle: 3 days Maths, 3 days Accounts, 1 day mixed test. Keep two sessions daily: concept revision and question solving. In the last 30 days, prioritize previous board papers and weak chapters.",
-    author: "Board Exam Desk",
-    image_url: null,
-    tags: ["Revision", "Timetable"],
-    created_at: "2026-04-05T00:00:00.000Z"
-  }
-];
-
-
-
 export default function BlogsClient({ initialPosts }: { initialPosts: BlogPost[] }) {
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  const posts = useMemo(() => {
-    return [...initialPosts, ...fallbackPosts];
-  }, [initialPosts]);
+  const posts = initialPosts;
 
   const uniqueTags = useMemo(() => {
     const tags = new Set<string>();

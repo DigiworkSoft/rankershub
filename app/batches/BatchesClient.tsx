@@ -107,7 +107,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfModalBatchId, setPdfModalBatchId] = useState("");
   const [pdfModalBatchTitle, setPdfModalBatchTitle] = useState("");
-  const [pdfFormStatus, setPdfFormStatus] = useState<"idle" | "submitting">("idle");
+  const [pdfFormStatus, setPdfFormStatus] = useState<"idle" | "submitting" | "success">("idle");
   const [pdfFormData, setPdfFormData] = useState({
     full_name: "",
     phone_number: "",
@@ -142,20 +142,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
 
       if (!res.ok) throw new Error("Failed");
 
-      // Show success state briefly
-      setPdfFormStatus("idle");
-      const successDiv = document.createElement("div");
-      successDiv.className = "fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm";
-      successDiv.innerHTML = `
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
-          <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          </div>
-          <h3 class="text-2xl font-bold text-gray-900 mb-2">Enquiry Sent!</h3>
-          <p class="text-gray-600 mb-6">Your syllabus download has started. Our team will contact you soon.</p>
-        </div>
-      `;
-      document.body.appendChild(successDiv);
+      setPdfFormStatus("success");
 
       // Auto-download the PDF
       const pdfUrl = SYLLABUS_PDF_MAP[pdfModalBatchId];
@@ -169,7 +156,6 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
       }
 
       setTimeout(() => {
-        document.body.removeChild(successDiv);
         closeSyllabusModal();
       }, 3000);
     } catch (err) {
@@ -483,6 +469,15 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
               </div>
 
               {/* Form */}
+              {pdfFormStatus === "success" ? (
+                <div className="p-8 text-center">
+                  <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Enquiry Sent!</h3>
+                  <p className="text-gray-600 mb-6">Your syllabus download has started. Our team will contact you soon.</p>
+                </div>
+              ) : (
               <form onSubmit={handlePdfFormSubmit} className="p-6 space-y-4">
                 <div>
                   <label htmlFor="pdf-name" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Full Name <span className="text-red-500">*</span></label>
@@ -530,6 +525,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                   Your details help us serve you better
                 </p>
               </form>
+              )}
             </motion.div>
           </motion.div>
         )}

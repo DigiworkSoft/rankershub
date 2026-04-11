@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { validateOrigin } from "@/lib/csrf";
 
 export async function POST(request: Request) {
+  if (!validateOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const ip = getClientIp(request);
+  const { success } = rateLimit(`admission:${ip}`, { limit: 5, windowMs: 60_000 });
+  if (!success) {
+    return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+  }
+
   try {
     const { student_name, phone_number, email, course, school_name, message } = await request.json();
 

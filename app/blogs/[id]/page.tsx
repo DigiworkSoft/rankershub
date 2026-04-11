@@ -6,50 +6,12 @@ import { getImageUrl } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
 
-const fallbackPosts = [
-  {
-    id: 9001,
-    title: "11th Commerce Maths: Strong Start Plan for First 60 Days",
-    content:
-      "If you are in 11th Commerce, your Maths success depends on consistency in the first two months.\n\n1) Study algebra basics and ratio-proportion daily.\n2) Solve 20 questions every day.\n3) Maintain an error notebook.\n4) Revise weak concepts each Sunday.\n\nThis routine builds speed and confidence before board preparation starts.",
-    author: "Rankers Hub Faculty",
-    image_url: null,
-    created_at: "2026-04-01T00:00:00.000Z",
-    tags: ["Maths", "Study Plan"]
-  },
-  {
-    id: 9002,
-    title: "12th Accounts Board Strategy: How to Score 90+",
-    content:
-      "Accountancy rewards clarity and presentation.\n\n1) Practice journal, ledger, and final accounts in board format.\n2) Focus on partnership and company account adjustments.\n3) Solve one timed paper every 3 days.\n4) Review common presentation mistakes after each test.\n\nWith regular practice and proper format, scoring 90+ becomes realistic.",
-    author: "Accounts Mentor Team",
-    image_url: null,
-    created_at: "2026-04-03T00:00:00.000Z",
-    tags: ["Accounts", "Boards"]
-  },
-  {
-    id: 9003,
-    title: "Commerce Boards Revision Timetable for Maths + Accounts",
-    content:
-      "Use a practical 7-day cycle.\n\n- Day 1-3: Maths concepts + chapter tests\n- Day 4-6: Accounts concepts + full-length questions\n- Day 7: Mixed paper and analysis\n\nLast 30 days: prioritize previous board papers and weak areas. Keep revision short, focused, and repeatable.",
-    author: "Board Exam Desk",
-    image_url: null,
-    created_at: "2026-04-05T00:00:00.000Z",
-    tags: ["Revision", "Timetable"]
-  }
-];
-
 export async function generateMetadata({ params }: Params) {
     const { id } = await params;
     const blogId = Number(id);
     
-    let blog;
     const result = await query("SELECT title, content FROM blogs WHERE id = $1", [blogId]);
-    blog = result.rows[0];
-    
-    if (!blog) {
-        blog = fallbackPosts.find(p => p.id === blogId);
-    }
+    const blog = result.rows[0];
 
     if (!blog) return { title: "Article Not Found" };
     return { title: `${blog.title} | RankersHub`, description: blog.content.slice(0, 160) };
@@ -59,13 +21,8 @@ export default async function BlogArticlePage({ params }: Params) {
   const { id } = await params;
   const blogId = Number(id);
 
-  let blog;
   const result = await query("SELECT * FROM blogs WHERE id = $1", [blogId]);
-  blog = result.rows[0];
-
-  if (!blog) {
-    blog = fallbackPosts.find(p => p.id === blogId);
-  }
+  const blog = result.rows[0];
 
   if (!blog) notFound();
 
