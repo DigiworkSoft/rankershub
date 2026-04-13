@@ -1,6 +1,8 @@
 import { query } from "@/lib/db";
 import BlogsClient from "./BlogsClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Insights & Guides | RankersHub",
   description: "Educational tips, commerce guides, and exam preparation strategies from expert faculty.",

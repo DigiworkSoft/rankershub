@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import { query } from "@/lib/db";
 import BatchesClient from "./BatchesClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Our Batches | RankersHub — Commerce Classes Pune",
   description: "Explore our specialized 11th & 12th Commerce and CA Foundation batches in Pune. Enroll now for expert guidance.",

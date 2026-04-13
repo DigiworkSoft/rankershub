@@ -1,5 +1,7 @@
 import { query } from "@/lib/db";
 import { Calendar, User, Tag, ArrowLeft } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getImageUrl } from "@/lib/utils";

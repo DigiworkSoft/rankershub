@@ -24,7 +24,7 @@ const faculty = [
     name: "Prof. Shivram R. Gadgil",
     role: "Accountancy Expert",
     experience: "7+ Years",
-    image: "/assets/photos/Image2.jpeg",
+    image: "/assets/photos/image2.jpeg",
     bio: "Renowned expert in Accountancy with over two decades of experience in mentoring commerce toppers.",
     whatsapp: "https://wa.me/919272547817",
     linkedin: "https://www.linkedin.com/in/ca-cs-cma-shivram-gadgil-601721173/",
