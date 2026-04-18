@@ -22,7 +22,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, id: result.rows[0].id }, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("FAQ create error:", err);
+    return NextResponse.json({ error: "Failed to create FAQ" }, { status: 500 });
   }
 }
 

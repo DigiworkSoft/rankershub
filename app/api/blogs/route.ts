@@ -46,7 +46,17 @@ export async function GET(request: Request) {
 
     if (!hasAdvancedParams) {
       const result = await query(`SELECT * FROM blogs ${orderSql}`);
-      return NextResponse.json(result.rows);
+      return NextResponse.json({
+        items: result.rows,
+        meta: {
+          page: 1,
+          limit: result.rows.length,
+          totalItems: result.rows.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
     }
 
     const countResult = await query(`SELECT COUNT(*)::int AS total FROM blogs ${whereSql}`, values);

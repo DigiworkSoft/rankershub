@@ -21,8 +21,9 @@ export async function POST(request: Request) {
     const envAdminUsername = process.env.ADMIN_USERNAME;
     const envAdminPassword = process.env.ADMIN_PASSWORD;
 
-    // Prefer explicit env-based local admin credentials when provided.
+    // Env-based admin login — only allowed in development
     if (
+      process.env.NODE_ENV !== "production" &&
       envAdminUsername &&
       envAdminPassword &&
       username === envAdminUsername &&

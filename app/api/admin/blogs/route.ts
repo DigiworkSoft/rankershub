@@ -176,7 +176,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (err: any) {
     console.error("Blog create error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create blog" }, { status: 500 });
   }
 }
 
@@ -245,7 +245,7 @@ export async function PUT(request: Request) {
     return NextResponse.json(result.rows[0]);
   } catch (err: any) {
     console.error("Blog update error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update blog" }, { status: 500 });
   }
 }
 

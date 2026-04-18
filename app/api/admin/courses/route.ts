@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyToken, getTokenFromRequest } from "@/lib/auth";
 import { validateUploadedFile, sanitizeFilename } from "@/lib/upload";
-import { ensureCourseBatchColumns } from "@/lib/batch-seed";
 import { uploadFile } from "@/lib/storage";
 
 export async function POST(request: Request) {
@@ -12,8 +11,6 @@ export async function POST(request: Request) {
   }
 
   try {
-  await ensureCourseBatchColumns(query);
-
     const formData = await request.formData();
     const title = String(formData.get("title") ?? "");
     const description = String(formData.get("description") ?? "");
@@ -65,7 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, id: result.rows[0].id }, { status: 201 });
   } catch (err: any) {
     console.error("Course create error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create course" }, { status: 500 });
   }
 }
 
@@ -80,8 +77,6 @@ export async function PUT(request: Request) {
   if (!id) return NextResponse.json({ error: "Missing batch id" }, { status: 400 });
 
   try {
-  await ensureCourseBatchColumns(query);
-
     const formData = await request.formData();
     const title = String(formData.get("title") ?? "");
     const description = String(formData.get("description") ?? "");
@@ -147,7 +142,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Batch update error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update course" }, { status: 500 });
   }
 }
 
@@ -162,7 +157,6 @@ export async function DELETE(request: Request) {
   if (!id) return NextResponse.json({ error: "Missing course id" }, { status: 400 });
 
   try {
-  await ensureCourseBatchColumns(query);
     // Delete from SQL
     await query("DELETE FROM courses WHERE id = $1", [Number(id)]);
     return NextResponse.json({ success: true });

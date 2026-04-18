@@ -12,6 +12,6 @@ export async function GET() {
     });
   } catch (err: any) {
     console.error("Health check error:", err);
-    return NextResponse.json({ status: "error", error: err.message }, { status: 500 });
+    return NextResponse.json({ status: "error", error: "Health check failed" }, { status: 500 });
   }
 }
