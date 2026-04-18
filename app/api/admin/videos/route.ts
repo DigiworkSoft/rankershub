@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     await query("INSERT INTO youtube_videos (title, youtube_url) VALUES ($1, $2)", [title, youtube_url]);
     return NextResponse.json({ success: true }, { status: 201 });
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to add video" }, { status: 500 });
   }
 }
@@ -32,7 +32,7 @@ export async function DELETE(request: Request) {
   try {
     await query("DELETE FROM youtube_videos WHERE id = $1", [Number(id)]);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to delete video" }, { status: 500 });
   }
 }

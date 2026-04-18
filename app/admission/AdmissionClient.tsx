@@ -47,7 +47,7 @@ const benefits = [
 
 export default function AdmissionClient() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState("");
+  const [_selectedCourse, setSelectedCourse] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",

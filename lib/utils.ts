@@ -123,7 +123,7 @@ function resolveSafeColor(color: string): string {
   return "#4f46e5";
 }
 
-function formatInlineText(input: string): string {
+export function formatInlineText(input: string): string {
   let text = escapeHtml(input);
 
   text = text.replace(/\[color:([^\]]+)\]([\s\S]*?)\[\/color\]/g, (_m, color, content) => {

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
-  CheckCircle, Target, Eye, Award, BookOpen, Users, TrendingUp,
+  Target, Eye, Award, BookOpen, Users, TrendingUp,
 } from "lucide-react";
 
 const features = [

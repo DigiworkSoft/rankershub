@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const result = await query("SELECT * FROM enquiries ORDER BY created_at DESC");
     return NextResponse.json(result.rows || []);
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to fetch enquiries" }, { status: 500 });
   }
 }
@@ -29,7 +29,7 @@ export async function DELETE(request: Request) {
   try {
     await query("DELETE FROM enquiries WHERE id = $1", [Number(id)]);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to delete enquiry" }, { status: 500 });
   }
 }

@@ -179,7 +179,7 @@ export async function DELETE(request: Request) {
     // Delete from SQL
     await query("DELETE FROM courses WHERE id = $1", [Number(id)]);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to delete course" }, { status: 500 });
   }
 }

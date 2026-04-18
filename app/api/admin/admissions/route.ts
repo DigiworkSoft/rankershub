@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const result = await query("SELECT * FROM admission_enquiries ORDER BY created_at DESC");
     return NextResponse.json(result.rows || []);
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to fetch admissions" }, { status: 500 });
   }
 }

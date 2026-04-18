@@ -39,7 +39,7 @@ export async function DELETE(request: Request) {
   try {
     await query("DELETE FROM faqs WHERE id = $1", [Number(id)]);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to delete FAQ" }, { status: 500 });
   }
 }

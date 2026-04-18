@@ -281,7 +281,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Blog not found" }, { status: 404 });
     }
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (_err) {
     return NextResponse.json({ error: "Failed to delete blog" }, { status: 500 });
   }
 }
