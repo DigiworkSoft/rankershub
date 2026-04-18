@@ -1,49 +1,28 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown, X, Send } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown, X, BadgePercent } from "lucide-react";
 import EnquiryForm from "../_components/EnquiryForm";
 
 const WHATSAPP_NUMBER = "919272547817";
 
-const SYLLABUS_PDF_MAP: Record<string, string> = {
-  "11th-commerce": "/assets/PDF/11th_Commerce_Regular_Syllabus.pdf",
-  "12th-commerce": "/assets/PDF/12th_Commerce_Boards_Syllabus.pdf",
+const SYLLABUS_PDF_MAP_BY_TITLE: Record<string, string> = {
+  "11th Commerce Regular": "/assets/PDF/11th_Commerce_Regular_Syllabus.pdf",
+  "12th Commerce Boards": "/assets/PDF/12th_Commerce_Boards_Syllabus.pdf",
 };
 
-const defaultBatches = [
-  {
-    id: "11th-commerce",
-    title: "11th Commerce Regular",
-    subtitle: "Foundation for Excellence",
-    description: "A comprehensive course designed to build strong fundamentals in Accountancy, Economics, and Business Studies.",
-    benefits: ["Conceptual clarity from scratch", "Regular chapter-wise tests", "Exclusive study materials", "Career guidance sessions"],
-    syllabus: ["Book-keeping & Accountancy", "Mathematics"],
-    duration: "1 Year",
-    timing: "Morning & Evening Batches",
-  },
-  {
-    id: "12th-commerce",
-    title: "12th Commerce Boards",
-    subtitle: "Target 95%+",
-    description: "Intensive preparation for Board Exams with focus on scoring techniques, time management, and mock exams.",
-    benefits: ["Board-specific test series", "Previous year paper solving", "One-on-one doubt sessions", "Stress management workshops"],
-    syllabus: ["Book-keeping & Accountancy", "Mathematics"],
-    duration: "1 Year",
-    timing: "Flexible Batches",
-  },
-  {
-    id: "ca-foundation",
-    title: "CA Foundation Intensive",
-    subtitle: "Professional Gateway",
-    description: "Kickstart your Chartered Accountancy journey with our focused coaching for all four papers of the CA Foundation exam.",
-    benefits: ["Expert CA faculty", "Comprehensive ICAI module coverage", "Weekly mock tests", "Personalized performance tracking"],
-    syllabus: ["Principles and Practice of Accounting", "Business Law & Reporting", "Maths, Statistics & LR", "Business Economics & BCK"],
-    duration: "4-6 Months",
-    timing: "Morning & Evening Batches",
-  },
-];
+const BATCH_SUBTITLE_BY_TITLE: Record<string, string> = {
+  "11th Commerce Regular": "Foundation for Excellence",
+  "12th Commerce Boards": "Target 95%+",
+  "CA Foundation Intensive": "Professional Gateway",
+};
+
+const BATCH_DISPLAY_ORDER: Record<string, number> = {
+  "11th Commerce Regular": 1,
+  "12th Commerce Boards": 2,
+  "CA Foundation Intensive": 3,
+};
 
 const defaultFaqSections = [
   {
@@ -78,7 +57,19 @@ const defaultFaqSections = [
 
 type Video = { id: number; title: string; youtube_url: string };
 type Faq = { id: number; category: string; question: string; answer: string };
-type Course = { id: number; title: string; description: string };
+type Course = {
+  id: number;
+  title: string;
+  description: string;
+  duration?: string | null;
+  timing?: string | null;
+  benefits?: string | null;
+  syllabus?: string | null;
+  syllabus_details?: string | null;
+  next_batch_starts?: string | null;
+  fees?: string | number | null;
+  discount_percent?: string | number | null;
+};
 
 interface BatchesClientProps {
   videos: Video[];
@@ -99,13 +90,55 @@ function youtubeIdFromUrl(url: string): string {
   }
 }
 
+function parseMultiLineOrComma(value?: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(/\n|,/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function parseSyllabusDetails(value?: string | null): Record<string, string> {
+  if (!value) return {};
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((acc, line) => {
+      const [topic, ...rest] = line.split("::");
+      const key = topic?.trim();
+      const sentence = rest.join("::").trim();
+      if (key && sentence) acc[key] = sentence;
+      return acc;
+    }, {});
+}
+
+function toFiniteNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function formatIndianCurrency(value: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export default function BatchesClient({ videos, faqs, courses }: BatchesClientProps) {
   const [openSyllabusKey, setOpenSyllabusKey] = useState<string | null>(null);
   const [openFaqKey, setOpenFaqKey] = useState<string | null>(null);
+  const videosStripRef = useRef<HTMLDivElement | null>(null);
+  const isVideosPausedRef = useRef(false);
+
+  const scrollingVideos = useMemo(() => {
+    if (videos.length <= 1) return videos;
+    return [...videos, ...videos];
+  }, [videos]);
 
   // Syllabus PDF enquiry modal state
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
-  const [pdfModalBatchId, setPdfModalBatchId] = useState("");
   const [pdfModalBatchTitle, setPdfModalBatchTitle] = useState("");
   const [pdfFormStatus, setPdfFormStatus] = useState<"idle" | "submitting" | "success">("idle");
   const [pdfFormData, setPdfFormData] = useState({
@@ -115,8 +148,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
     message: "",
   });
 
-  const openSyllabusModal = (batchId: string, batchTitle: string) => {
-    setPdfModalBatchId(batchId);
+  const openSyllabusModal = (batchTitle: string) => {
     setPdfModalBatchTitle(batchTitle);
     setPdfFormData({ full_name: "", phone_number: "", batch: batchTitle, message: "Syllabus PDF Download" });
     setPdfModalOpen(true);
@@ -145,7 +177,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
       setPdfFormStatus("success");
 
       // Auto-download the PDF
-      const pdfUrl = SYLLABUS_PDF_MAP[pdfModalBatchId];
+  const pdfUrl = SYLLABUS_PDF_MAP_BY_TITLE[pdfModalBatchTitle];
       if (pdfUrl) {
         const link = document.createElement("a");
         link.href = pdfUrl;
@@ -169,14 +201,25 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
     const dbBatches = courses.map((c) => ({
       id: `course-${c.id}`,
       title: c.title,
-      subtitle: "Professional Course",
-      description: c.description,
-      benefits: ["Specialized curriculum", "Expert guidance", "Comprehensive material", "Recorded lectures available"],
-      syllabus: ["Core Subject Focus", "Practice Modules", "Test Series"],
-      duration: "Flexible",
-      timing: "Contact for details",
+      subtitle: BATCH_SUBTITLE_BY_TITLE[c.title] || "Professional Course",
+      description: c.description || "Comprehensive and focused batch for better exam performance.",
+      benefits: parseMultiLineOrComma(c.benefits).length ? parseMultiLineOrComma(c.benefits) : ["Specialized curriculum", "Expert guidance", "Comprehensive material", "Recorded lectures available"],
+      syllabus: parseMultiLineOrComma(c.syllabus).length ? parseMultiLineOrComma(c.syllabus) : ["Core Subject Focus", "Practice Modules", "Test Series"],
+  syllabusDetailsMap: parseSyllabusDetails(c.syllabus_details),
+      duration: c.duration || "Flexible",
+      timing: c.timing || "Contact for details",
+      nextBatchStarts: c.next_batch_starts || "Admissions Open",
+      fees: toFiniteNumber(c.fees),
+      discountPercent: toFiniteNumber(c.discount_percent),
     }));
-    return [...defaultBatches, ...dbBatches];
+
+    return [...dbBatches].sort((a, b) => {
+      const aOrder = BATCH_DISPLAY_ORDER[a.title] ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = BATCH_DISPLAY_ORDER[b.title] ?? Number.MAX_SAFE_INTEGER;
+
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.title.localeCompare(b.title);
+    });
   }, [courses]);
 
   const mergedFaqSections = useMemo(() => {
@@ -196,6 +239,62 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
     const text = `Hi, I want to enroll in ${courseName}. Please share details.`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
+
+  useEffect(() => {
+    const strip = videosStripRef.current;
+    if (!strip || videos.length <= 1) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    const getStep = () => {
+      const firstCard = strip.firstElementChild as HTMLElement | null;
+      if (!firstCard) return 0;
+
+      const styles = window.getComputedStyle(strip);
+      const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      return firstCard.getBoundingClientRect().width + gap;
+    };
+
+    const pause = () => {
+      isVideosPausedRef.current = true;
+    };
+    const resume = () => {
+      isVideosPausedRef.current = false;
+    };
+
+    strip.addEventListener("mouseenter", pause);
+    strip.addEventListener("mouseleave", resume);
+    strip.addEventListener("touchstart", pause, { passive: true });
+    strip.addEventListener("touchend", resume);
+
+    const interval = window.setInterval(() => {
+      if (isVideosPausedRef.current) return;
+      if (strip.scrollWidth <= strip.clientWidth + 1) return;
+
+      const step = getStep();
+      if (!step) return;
+
+      const loopWidth = strip.scrollWidth / 2;
+      if (strip.scrollLeft >= loopWidth - 2) {
+        strip.scrollLeft -= loopWidth;
+      }
+
+      strip.scrollTo({
+        left: strip.scrollLeft + step,
+        behavior: "smooth",
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(interval);
+      strip.removeEventListener("mouseenter", pause);
+      strip.removeEventListener("mouseleave", resume);
+      strip.removeEventListener("touchstart", pause);
+      strip.removeEventListener("touchend", resume);
+    };
+  }, [videos.length]);
 
   return (
     <div className="pt-0 md:pt-4 pb-12 md:pb-20 bg-gray-50 font-outfit">
@@ -257,6 +356,31 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     </div>
                   </div>
 
+                  {batch.fees && batch.fees > 0 && (
+                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 p-4 md:p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Course Fees</p>
+                          {batch.discountPercent && batch.discountPercent > 0 ? (
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <p className="text-2xl md:text-3xl font-extrabold text-emerald-800">₹{formatIndianCurrency(Math.max(0, batch.fees - (batch.fees * Math.min(batch.discountPercent, 100)) / 100))}</p>
+                              <p className="text-sm md:text-base text-gray-500 line-through">₹{formatIndianCurrency(batch.fees)}</p>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-2xl md:text-3xl font-extrabold text-emerald-800">₹{formatIndianCurrency(batch.fees)}</p>
+                          )}
+                        </div>
+
+                        {batch.discountPercent && batch.discountPercent > 0 && (
+                          <div className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
+                            <BadgePercent className="h-3.5 w-3.5" /> Save {Math.min(batch.discountPercent, 100)}%
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs md:text-sm text-emerald-700/90">Limited-time offer available for early enrollment.</p>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                       <CheckCircle className="w-6 h-6 text-green-500" /> Benefits of Joining
@@ -274,9 +398,9 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     <button onClick={() => openWhatsAppForCourse(batch.title)} className="btn-primary w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 flex items-center justify-center gap-2 uppercase tracking-widest text-sm">
                       Enroll Now <ArrowRight className="w-5 h-5" />
                     </button>
-                    {SYLLABUS_PDF_MAP[batch.id] && (
+                    {SYLLABUS_PDF_MAP_BY_TITLE[batch.title] && (
                       <button
-                        onClick={() => openSyllabusModal(batch.id, batch.title)}
+                        onClick={() => openSyllabusModal(batch.title)}
                         className="bg-gray-50 text-gray-700 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center justify-center gap-2 border border-gray-100 text-sm cursor-pointer"
                       >
                         <Download className="w-5 h-5" /> Syllabus PDF
@@ -306,7 +430,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                             </button>
                             {isOpen && (
                               <div className="px-4 pb-4 text-sm text-gray-600">
-                                <p>Comprehensive coverage of {subject} according to state board and professional standards.</p>
+                                <p>{batch.syllabusDetailsMap?.[subject] || `Comprehensive coverage of ${subject} according to state board and professional standards.`}</p>
                               </div>
                             )}
                           </div>
@@ -315,7 +439,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     </div>
                     <div className="mt-12 p-6 bg-primary rounded-2xl text-white">
                       <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">Next Batch Starts</p>
-                      <p className="text-2xl font-bold">15th April, 2026</p>
+                      <p className="text-2xl font-bold">{batch.nextBatchStarts}</p>
                     </div>
                   </div>
                 </div>
@@ -327,25 +451,25 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
         {/* YouTube Demo Videos */}
         <div className="mt-14 md:mt-20 bg-white rounded-[2rem] shadow-xl border border-gray-100 p-5 md:p-10">
           <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 text-center mb-8">
-            Watch The <span className="text-primary">Demo Lectures</span>
+            Watch The <span className="text-primary">Informative video</span>
           </h2>
           {videos.length === 0 ? (
             <p className="text-center text-gray-500">No demo videos added yet.</p>
           ) : (
-            <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible hide-scrollbar snap-x snap-mandatory -mx-2 px-2 md:mx-0 md:px-0">
-              {videos.map((video) => {
+            <div ref={videosStripRef} className="flex gap-4 md:gap-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-2 px-2 md:mx-0 md:px-0 scroll-smooth">
+              {scrollingVideos.map((video, idx) => {
                 const videoId = youtubeIdFromUrl(video.youtube_url);
                 const thumb = videoId
                   ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
                   : "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=1000";
                 return (
                   <motion.a
-                    key={video.id}
+                    key={`${video.id}-${idx}`}
                     href={video.youtube_url}
                     target="_blank"
                     rel="noreferrer"
                     whileHover={{ y: -4 }}
-                    className="group block rounded-2xl overflow-hidden border border-gray-200 hover:border-primary/40 transition-all bg-gray-50 min-w-[88%] sm:min-w-[70%] md:min-w-0 snap-start"
+                    className="group block rounded-2xl overflow-hidden border border-gray-200 hover:border-primary/40 transition-all bg-gray-50 min-w-[88%] sm:min-w-[70%] md:min-w-[calc((100%-1.5rem)/2)] lg:min-w-[calc((100%-3rem)/3)] snap-start"
                   >
                     <div className="relative aspect-video overflow-hidden">
                       <img src={thumb} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />

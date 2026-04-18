@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Calendar, User, ArrowRight, Search } from "lucide-react";
+import { Calendar, User, ArrowRight, Search, Clock3 } from "lucide-react";
 import Link from "next/link";
 import { getImageUrl } from "@/lib/utils";
+import { PRESET_BLOG_TAGS } from "@/lib/blog-tags";
 
 type BlogPost = {
   id: number;
@@ -16,19 +17,36 @@ type BlogPost = {
   created_at: string;
 };
 
-export default function BlogsClient({ initialPosts }: { initialPosts: BlogPost[] }) {
+export default function BlogsClient({
+  initialPosts,
+  initialTag,
+}: {
+  initialPosts: BlogPost[];
+  initialTag?: string | null;
+}) {
   const [query, setQuery] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const tagsScrollerRef = useRef<HTMLDivElement>(null);
 
   const posts = initialPosts;
 
   const uniqueTags = useMemo(() => {
-    const tags = new Set<string>();
+    const tags = new Set<string>(PRESET_BLOG_TAGS);
     posts.forEach((post) => {
       if (post.tags && Array.isArray(post.tags)) post.tags.forEach((t) => tags.add(t));
     });
     return Array.from(tags).sort();
   }, [posts]);
+
+  const [activeTag, setActiveTag] = useState<string | null>(() => {
+    if (!initialTag) return null;
+    return uniqueTags.includes(initialTag) ? initialTag : null;
+  });
+
+  useEffect(() => {
+    if (initialTag && uniqueTags.includes(initialTag)) {
+      setActiveTag(initialTag);
+    }
+  }, [initialTag, uniqueTags]);
 
   const filteredPosts = useMemo(() => {
     let result = posts;
@@ -37,6 +55,48 @@ export default function BlogsClient({ initialPosts }: { initialPosts: BlogPost[]
     if (q) result = result.filter((post) => [post.title, post.content, post.author].some((v) => (v || "").toLowerCase().includes(q)));
     return result;
   }, [posts, query, activeTag]);
+
+  const estimateReadTime = (content: string) => {
+    const words = (content || "").trim().split(/\s+/).filter(Boolean).length;
+    const minutes = Math.max(1, Math.ceil(words / 200));
+    return `${minutes} min read`;
+  };
+
+  useEffect(() => {
+    const container = tagsScrollerRef.current;
+    if (!container || uniqueTags.length <= 1) return;
+
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (!isMobile) return;
+
+    let interval: NodeJS.Timeout;
+
+    const startAutoScroll = () => {
+      interval = setInterval(() => {
+        const maxScrollLeft = container.scrollWidth - container.clientWidth;
+        if (maxScrollLeft <= 0) return;
+
+        const nextLeft = container.scrollLeft + 120;
+        if (nextLeft >= maxScrollLeft) {
+          container.scrollTo({ left: 0, behavior: "smooth" });
+        } else {
+          container.scrollTo({ left: nextLeft, behavior: "smooth" });
+        }
+      }, 1000);
+    };
+
+    const stopAutoScroll = () => clearInterval(interval);
+
+    startAutoScroll();
+    container.addEventListener("touchstart", stopAutoScroll, { passive: true });
+    container.addEventListener("touchend", startAutoScroll, { passive: true });
+
+    return () => {
+      stopAutoScroll();
+      container.removeEventListener("touchstart", stopAutoScroll);
+      container.removeEventListener("touchend", startAutoScroll);
+    };
+  }, [uniqueTags.length]);
 
   return (
     <div className="pt-16 md:pt-28 pb-12 md:pb-20 font-outfit">
@@ -68,23 +128,28 @@ export default function BlogsClient({ initialPosts }: { initialPosts: BlogPost[]
         </div>
 
         {uniqueTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-8 items-center">
-            <span className="text-sm font-bold text-gray-500 uppercase tracking-widest mr-2">Filters:</span>
-            <button
-              onClick={() => setActiveTag(null)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all border ${activeTag === null ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-white text-gray-600 border-gray-200 hover:border-primary/50"}`}
+          <div className="mb-8">
+            <span className="block text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">Filters:</span>
+            <div
+              ref={tagsScrollerRef}
+              className="flex md:flex-wrap gap-2 items-center overflow-x-auto no-scrollbar snap-x snap-mandatory touch-pan-x pb-1"
             >
-              All Blogs
-            </button>
-            {uniqueTags.map((tag) => (
               <button
-                key={tag}
-                onClick={() => setActiveTag(tag)}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all border ${activeTag === tag ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-white text-gray-600 border-gray-200 hover:border-primary/50"}`}
+                onClick={() => setActiveTag(null)}
+                className={`snap-start whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all border ${activeTag === null ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-white text-gray-600 border-gray-200 hover:border-primary/50"}`}
               >
-                {tag}
+                All Blogs
               </button>
-            ))}
+              {uniqueTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTag(tag)}
+                  className={`snap-start whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all border ${activeTag === tag ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-white text-gray-600 border-gray-200 hover:border-primary/50"}`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -93,49 +158,49 @@ export default function BlogsClient({ initialPosts }: { initialPosts: BlogPost[]
             <div className="col-span-full py-20 text-center">
               <p className="text-gray-500 text-lg">No blog articles found matching your criteria.</p>
             </div>
-          ) : filteredPosts.map((post, index) => (
-            <motion.article
-              key={post.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className="group bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 hover:shadow-2xl transition-all flex flex-col h-full"
-            >
-              <div className="relative h-64 overflow-hidden">
-                <img
-                  src={getImageUrl(post.image_url)}
-                  alt={post.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 underline-offset-4"
-                  referrerPolicy="no-referrer"
-                />
-                {post.tags && post.tags.length > 0 && (
-                  <div className="absolute top-6 left-6 flex gap-2">
-                    <span className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold text-primary shadow-sm uppercase tracking-wider">
-                      {post.tags[0]}
-                    </span>
+          ) : (
+            filteredPosts.map((post, i) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="group"
+              >
+                <Link href={`/blogs/${post.id}`}>
+                  <div className="relative aspect-[4/5] bg-gray-100 rounded-2xl overflow-hidden mb-5 card-shadow flex items-center justify-center">
+                    {post.image_url ? (
+                      <img
+                        src={getImageUrl(post.image_url)}
+                        alt={post.title}
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-500 text-sm">No Image</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="p-8 md:p-10 flex flex-col flex-1">
-                <div className="flex items-center gap-4 mb-6 text-sm text-gray-500 font-semibold">
-                  <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-primary" /> {new Date(post.created_at).toLocaleDateString()}</span>
-                  <span className="flex items-center gap-1.5"><User className="w-4 h-4 text-primary" /> {post.author}</span>
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6 group-hover:text-primary transition-colors line-clamp-2 leading-tight">
-                  {post.title}
-                </h3>
-                <p className="text-gray-600 mb-6 md:mb-8 line-clamp-3 text-base md:text-lg leading-relaxed">
-                  {post.content}
-                </p>
-                <div className="mt-auto pt-5 md:pt-6 border-t border-gray-50">
-                  <Link href={`/blogs/${post.id}`} className="inline-flex items-center gap-2 text-primary font-bold text-base md:text-lg group-hover:translate-x-2 transition-transform">
-                    Read Full Article <ArrowRight className="w-5 h-5" />
-                  </Link>
-                </div>
-              </div>
-            </motion.article>
-          ))}
+                  <div className="px-2">
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-3 font-medium">
+                      <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {post.author}</span>
+                      <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(post.created_at).toLocaleDateString()}</span>
+                      <span className="flex items-center gap-1.5"><Clock3 className="w-3.5 h-3.5" /> {estimateReadTime(post.content)}</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2 leading-snug group-hover:text-primary transition-colors">
+                      {post.title}
+                    </h2>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {post.content.replace(/<[^>]*>/g, "").substring(0, 120)}...
+                    </p>
+                    <div className="flex items-center text-sm font-bold text-primary group-hover:gap-3 transition-all">
+                      Read Article <ArrowRight className="w-4 h-4 ml-1" />
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
     </div>

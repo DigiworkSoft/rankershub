@@ -7,11 +7,11 @@ const ALLOWED_IMAGE_TYPES = new Set([
 
 const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export function validateUploadedFile(file: File): { valid: boolean; error?: string } {
   if (file.size > MAX_FILE_SIZE) {
-    return { valid: false, error: `File too large. Maximum size is 5MB.` };
+    return { valid: false, error: `File too large. Maximum size is 10MB.` };
   }
 
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {

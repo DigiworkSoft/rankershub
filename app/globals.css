@@ -52,6 +52,41 @@ body {
 }
 
 /* Orb background effects */
+.edu-paper-bg {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(234, 179, 8, 0.09) 0%, transparent 38%),
+    radial-gradient(circle at 88% 26%, rgba(14, 116, 144, 0.09) 0%, transparent 42%),
+    linear-gradient(180deg, #fffef8 0%, #f9fbff 100%);
+}
+
+.edu-notebook-lines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(30, 58, 138, 0.05) 0px,
+    rgba(30, 58, 138, 0.05) 1px,
+    transparent 1px,
+    transparent 36px
+  );
+  opacity: 0.65;
+}
+
+.edu-margin-line {
+  width: 2px;
+  background: linear-gradient(to bottom, rgba(239, 68, 68, 0.45), rgba(239, 68, 68, 0.2));
+  opacity: 0.55;
+}
+
+.edu-symbol {
+  position: absolute;
+  font-size: clamp(0.8rem, 0.95vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(30, 58, 138, 0.16);
+  text-transform: uppercase;
+  animation: eduDrift 16s ease-in-out infinite;
+  user-select: none;
+}
+
 .bg-orb {
   position: absolute;
   border-radius: 9999px;
@@ -92,8 +127,119 @@ body {
   50% { transform: translateY(-20px); }
 }
 
+@keyframes eduDrift {
+  0%, 100% {
+    transform: translateY(0px) rotate(-2deg);
+    opacity: 0.16;
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edu-symbol,
+  .bg-orb {
+    animation: none;
+  }
+}
+
 /* Prose styles for blog articles */
 .prose p {
   margin-bottom: 1.25em;
   line-height: 1.8;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  color: #111827;
+  font-weight: 800;
+  line-height: 1.25;
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+}
+
+.prose h1 {
+  font-size: clamp(1.9rem, 3.2vw, 2.7rem);
+}
+
+.prose h2 {
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+}
+
+.prose h3 {
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+}
+
+.prose h4 {
+  font-size: clamp(1.15rem, 1.9vw, 1.5rem);
+}
+
+.prose h5 {
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+}
+
+.prose h6 {
+  font-size: 1rem;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 1.25em 1.25em;
+  padding-left: 0.5em;
+}
+
+.prose ul {
+  list-style: disc;
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose li {
+  margin-bottom: 0.4em;
+  line-height: 1.75;
+}
+
+.prose a {
+  color: #4f46e5;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose blockquote {
+  border-left: 4px solid #c7d2fe;
+  background: #f8faff;
+  padding: 0.8em 1em;
+  margin: 1.25em 0;
+  border-radius: 0.5rem;
+}
+
+.prose pre,
+.prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.prose pre {
+  background: #111827;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  overflow-x: auto;
+  margin-bottom: 1.25em;
+}
+
+.prose .ql-font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.prose .ql-font-monospace {
+  font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }

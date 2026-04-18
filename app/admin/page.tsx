@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Send, Book, FileText, CheckCircle, Clock, Trash2, RefreshCw, PlayCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Book, FileText, Trash2, RefreshCw, PlayCircle, Edit, X, Maximize, ChevronDown, ExternalLink, Search } from "lucide-react";
+import RichTextEditor from "./_components/RichTextEditor";
+import { PRESET_BLOG_TAGS } from "@/lib/blog-tags";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -16,12 +18,56 @@ export default function AdminPage() {
   const [videos, setVideos] = useState<any[]>([]);
   const [faqs, setFaqs] = useState<any[]>([]);
   const [admissions, setAdmissions] = useState<any[]>([]);
+  const [editingCourse, setEditingCourse] = useState<any | null>(null);
+  const [openBatchSyllabusKey, setOpenBatchSyllabusKey] = useState<string | null>(null);
+  const [editingBlog, setEditingBlog] = useState<any | null>(null);
+  const [isEditorFullScreen, setIsEditorFullScreen] = useState(false);
+  const [blogSubmitting, setBlogSubmitting] = useState(false);
+  const [blogActionLoadingId, setBlogActionLoadingId] = useState<number | null>(null);
+  const [blogSearch, setBlogSearch] = useState("");
+  const [blogValidationError, setBlogValidationError] = useState("");
 
-  const [courseForm, setCourseForm] = useState({ title: "", description: "", file: null as File | null });
-  const [blogForm, setBlogForm] = useState<{ title: string; content: string; author: string; tags: string[]; file: File | null }>({ title: "", content: "", author: "", tags: [], file: null });
+  const [courseForm, setCourseForm] = useState({
+    title: "",
+    duration: "",
+    timing: "",
+    fees: "",
+    discount_percent: "",
+    benefits: "",
+    syllabus: "",
+    syllabus_details: "",
+    next_batch_starts: "",
+    description: "",
+    file: null as File | null,
+  });
+  const [blogForm, setBlogForm] = useState<{ title: string; content: string; author: string; tags: string[]; file: File | null }>({ title: "", content: "", author: "Admin", tags: [], file: null });
   const [videoForm, setVideoForm] = useState({ title: "", youtube_url: "" });
   const [faqForm, setFaqForm] = useState({ question: "", answer: "", category: "Admission FAQs" });
   const [customTagInput, setCustomTagInput] = useState("");
+
+  const availableBlogTags = useMemo(() => {
+    const merged = new Set<string>(PRESET_BLOG_TAGS);
+    blogs.forEach((blog) => {
+      if (Array.isArray(blog.tags)) {
+        blog.tags.forEach((tag: string) => {
+          const clean = String(tag || "").trim();
+          if (clean) merged.add(clean);
+        });
+      }
+    });
+    return Array.from(merged);
+  }, [blogs]);
+
+  const visibleBlogs = useMemo(() => {
+    const needle = blogSearch.trim().toLowerCase();
+    if (!needle) return blogs;
+    return blogs.filter((blog) => {
+      const title = String(blog.title || "").toLowerCase();
+      const author = String(blog.author || "").toLowerCase();
+      const tags = Array.isArray(blog.tags) ? blog.tags.map((tag: string) => String(tag).toLowerCase()) : [];
+      return title.includes(needle) || author.includes(needle) || tags.some((tag) => tag.includes(needle));
+    });
+  }, [blogSearch, blogs]);
 
   useEffect(() => {
     fetch("/api/admin/verify", { credentials: "include" })
@@ -68,7 +114,11 @@ export default function AdminPage() {
 
   const fetchEnquiries = async () => { const res = await authedFetch("/api/admin/enquiries"); const data = await res.json(); setEnquiries(data || []); };
   const fetchCourses = async () => { const res = await fetch("/api/courses"); const data = await res.json(); setCourses(data || []); };
-  const fetchBlogs = async () => { const res = await fetch("/api/blogs"); const data = await res.json(); setBlogs(data || []); };
+  const fetchBlogs = async () => {
+    const res = await authedFetch("/api/admin/blogs?page=1&limit=100");
+    const data = await res.json();
+    setBlogs(Array.isArray(data) ? data : data?.items || []);
+  };
   const fetchVideos = async () => { const res = await fetch("/api/videos"); const data = await res.json(); setVideos(data || []); };
   const fetchAdmissions = async () => { const res = await authedFetch("/api/admin/admissions"); const data = await res.json(); setAdmissions(data || []); };
   const fetchFaqs = async () => { const res = await fetch("/api/faqs"); const data = await res.json(); setFaqs(data || []); };
@@ -83,40 +133,230 @@ export default function AdminPage() {
     if (activeTab === "faqs") fetchFaqs();
   }, [activeTab, isAuthenticated]);
 
+  useEffect(() => {
+    if (isEditorFullScreen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isEditorFullScreen]);
+
   const handleCourseUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!courseForm.title || !courseForm.duration || !courseForm.timing || !courseForm.benefits || !courseForm.syllabus || !courseForm.next_batch_starts) {
+      alert("Please fill all required batch fields");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("title", courseForm.title);
     formData.append("description", courseForm.description);
+    formData.append("duration", courseForm.duration);
+    formData.append("timing", courseForm.timing);
+    formData.append("fees", courseForm.fees);
+    formData.append("discount_percent", courseForm.discount_percent);
+    formData.append("benefits", courseForm.benefits);
+    formData.append("syllabus", courseForm.syllabus);
+    formData.append("syllabus_details", courseForm.syllabus_details);
+    formData.append("next_batch_starts", courseForm.next_batch_starts);
     if (courseForm.file) formData.append("image", courseForm.file);
 
     try {
-      const res = await authedFetch("/api/admin/courses", { method: "POST", body: formData });
+      const endpoint = editingCourse ? `/api/admin/courses?id=${editingCourse.id}` : "/api/admin/courses";
+      const method = editingCourse ? "PUT" : "POST";
+
+      const res = await authedFetch(endpoint, { method, body: formData });
       if (res.ok) {
-        alert("Course Uploaded successfully");
-        setCourseForm({ title: "", description: "", file: null });
+        alert(editingCourse ? "Batch updated successfully" : "Batch added successfully");
+        setCourseForm({
+          title: "",
+          duration: "",
+          timing: "",
+          fees: "",
+          discount_percent: "",
+          benefits: "",
+          syllabus: "",
+          syllabus_details: "",
+          next_batch_starts: "",
+          description: "",
+          file: null,
+        });
+        setEditingCourse(null);
         fetchCourses();
       } else throw new Error();
-    } catch { alert("Failed to upload course"); }
+    } catch { alert(editingCourse ? "Failed to update batch" : "Failed to add batch"); }
   };
 
-  const handleBlogUpload = async (e: React.FormEvent) => {
+  const handleEditCourse = (course: any) => {
+    setEditingCourse(course);
+    setCourseForm({
+      title: course.title || "",
+      duration: course.duration || "",
+      timing: course.timing || "",
+    fees: course.fees != null ? String(course.fees) : "",
+    discount_percent: course.discount_percent != null ? String(course.discount_percent) : "",
+      benefits: course.benefits || "",
+      syllabus: course.syllabus || "",
+    syllabus_details: course.syllabus_details || "",
+      next_batch_starts: course.next_batch_starts || "",
+      description: course.description || "",
+      file: null,
+    });
+    window.scrollTo(0, 0);
+  };
+
+  const cancelCourseEdit = () => {
+    setEditingCourse(null);
+    setCourseForm({
+      title: "",
+      duration: "",
+      timing: "",
+    fees: "",
+    discount_percent: "",
+      benefits: "",
+      syllabus: "",
+    syllabus_details: "",
+      next_batch_starts: "",
+      description: "",
+      file: null,
+    });
+  };
+
+  const handleBlogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (blogSubmitting) return;
+
+    const normalizedTitle = blogForm.title.trim();
+    const normalizedAuthor = blogForm.author.trim() || "Admin";
+    const normalizedTags = Array.from(
+      new Set(
+        blogForm.tags
+          .map((tag) => String(tag || "").trim())
+          .filter(Boolean)
+      )
+    );
+    const plainContent = blogForm.content
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!normalizedTitle) {
+      setBlogValidationError("Blog title is required");
+      return;
+    }
+
+    if (!plainContent) {
+      setBlogValidationError("Blog content cannot be empty");
+      return;
+    }
+
+    if (!normalizedTags.length) {
+      setBlogValidationError("Please select at least one tag");
+      return;
+    }
+
+    setBlogValidationError("");
+
     const formData = new FormData();
-    formData.append("title", blogForm.title);
+    formData.append("title", normalizedTitle);
     formData.append("content", blogForm.content);
-    formData.append("author", blogForm.author);
-    formData.append("tags", JSON.stringify(blogForm.tags));
+    formData.append("author", normalizedAuthor);
+    formData.append("tags", JSON.stringify(normalizedTags));
     if (blogForm.file) formData.append("image", blogForm.file);
 
+    const url = editingBlog ? `/api/admin/blogs?id=${editingBlog.id}` : "/api/admin/blogs";
+    const method = editingBlog ? "PUT" : "POST";
+
     try {
-      const res = await authedFetch("/api/admin/blogs", { method: "POST", body: formData });
+      setBlogSubmitting(true);
+      const res = await authedFetch(url, { method, body: formData });
       if (res.ok) {
-        alert("Blog Published successfully");
-        setBlogForm({ title: "", content: "", author: "", tags: [], file: null });
+        await res.json();
+        alert(`Blog ${editingBlog ? "updated" : "published"} successfully`);
+        setBlogForm({ title: "", content: "", author: "Admin", tags: [], file: null });
+        setCustomTagInput("");
+        setEditingBlog(null);
+        setIsEditorFullScreen(false);
         fetchBlogs();
-      } else throw new Error();
-    } catch { alert("Failed to publish blog"); }
+      } else {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to submit blog");
+      }
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setBlogSubmitting(false);
+    }
+  };
+
+  const handleEditBlog = (blog: any) => {
+    setEditingBlog(blog);
+    setBlogValidationError("");
+    setBlogForm({
+      title: blog.title,
+      content: blog.content,
+      author: blog.author,
+      tags: blog.tags || [],
+      file: null,
+    });
+    window.scrollTo(0, 0);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBlog(null);
+    setBlogForm({ title: "", content: "", author: "Admin", tags: [], file: null });
+    setCustomTagInput("");
+    setIsEditorFullScreen(false);
+    setBlogValidationError("");
+  };
+
+  const toggleBlogTag = (tag: string) => {
+    setBlogForm((prev) => {
+      const exists = prev.tags.includes(tag);
+      return {
+        ...prev,
+        tags: exists ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag],
+      };
+    });
+  };
+
+  const handleAddCustomTag = () => {
+    const cleanTag = customTagInput.trim();
+    if (!cleanTag) return;
+    const exists = blogForm.tags.some((tag) => tag.toLowerCase() === cleanTag.toLowerCase());
+    if (!exists) {
+      setBlogForm((prev) => ({ ...prev, tags: [...prev.tags, cleanTag] }));
+    }
+    setCustomTagInput("");
+  };
+
+  const parseBatchList = (value?: string) =>
+    String(value || "")
+      .split(/\n|,/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const formatIndianCurrency = (value: number) =>
+    new Intl.NumberFormat("en-IN", {
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  const getCoursePricing = (course: any) => {
+    const fees = Number(course.fees);
+    const discount = Number(course.discount_percent);
+
+    if (!Number.isFinite(fees) || fees <= 0) return null;
+
+    const validDiscount = Number.isFinite(discount) ? Math.min(Math.max(discount, 0), 100) : 0;
+    const finalPrice = Math.max(0, fees - (fees * validDiscount) / 100);
+
+    return { fees, discount: validDiscount, finalPrice };
   };
 
   const handleVideoAdd = async (e: React.FormEvent) => {
@@ -153,7 +393,22 @@ export default function AdminPage() {
 
   const handleDeleteEnquiry = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/enquiries?id=${id}`, { method: "DELETE" }); fetchEnquiries(); };
   const handleDeleteCourse = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/courses?id=${id}`, { method: "DELETE" }); fetchCourses(); };
-  const handleDeleteBlog = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/blogs?id=${id}`, { method: "DELETE" }); fetchBlogs(); };
+  const handleDeleteBlog = async (id: number) => {
+    if (!window.confirm("Delete this blog?")) return;
+    try {
+      setBlogActionLoadingId(id);
+      const res = await authedFetch(`/api/admin/blogs?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to delete blog");
+      }
+      await fetchBlogs();
+    } catch (error: any) {
+      alert(error.message || "Failed to delete blog");
+    } finally {
+      setBlogActionLoadingId(null);
+    }
+  };
   const handleDeleteVideo = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/videos?id=${id}`, { method: "DELETE" }); fetchVideos(); };
   const handleDeleteFaq = async (id: number) => { if (!window.confirm("Delete?")) return; await authedFetch(`/api/admin/faqs?id=${id}`, { method: "DELETE" }); fetchFaqs(); };
 
@@ -190,7 +445,7 @@ export default function AdminPage() {
 
   const sidebarItems = [
     { key: "enquiries", label: "Enquiries" },
-    { key: "courses", label: "Manage Courses" },
+    { key: "courses", label: "Manage Batches" },
     { key: "blogs", label: "Manage Blogs" },
     { key: "videos", label: "YouTube Videos" },
     { key: "faqs", label: "Manage FAQs" },
@@ -245,24 +500,88 @@ export default function AdminPage() {
         {activeTab === "courses" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
-              <div className="flex items-center gap-3 mb-6"><Book className="w-8 h-8 text-secondary" /><h3 className="text-2xl font-bold text-gray-900">Upload New Course</h3></div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Book className="w-8 h-8 text-secondary" />
+                  <h3 className="text-2xl font-bold text-gray-900">{editingCourse ? "Edit Batch" : "Add New Batch"}</h3>
+                </div>
+                {editingCourse && (
+                  <button onClick={cancelCourseEdit} className="text-sm font-semibold text-gray-600 hover:text-gray-900">Cancel</button>
+                )}
+              </div>
               <form onSubmit={handleCourseUpload} className="space-y-5">
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Course Title</label><input required type="text" value={courseForm.title} onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">Description</label><textarea required rows={4} value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">Course Image</label><input type="file" accept="image/*" onChange={(e) => setCourseForm({ ...courseForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" /></div>
-                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">Upload Course</button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Duration</label><input required type="text" placeholder="e.g. 1 Year" value={courseForm.duration} onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Timing</label><input required type="text" placeholder="e.g. Morning & Evening" value={courseForm.timing} onChange={(e) => setCourseForm({ ...courseForm, timing: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Fees (₹)</label><input type="number" min="0" step="1" placeholder="e.g. 36000" value={courseForm.fees} onChange={(e) => setCourseForm({ ...courseForm, fees: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Discount (%)</label><input type="number" min="0" max="100" step="0.01" placeholder="e.g. 15" value={courseForm.discount_percent} onChange={(e) => setCourseForm({ ...courseForm, discount_percent: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                </div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-1">Benefits of Joining</label><textarea required rows={4} placeholder="One benefit per line" value={courseForm.benefits} onChange={(e) => setCourseForm({ ...courseForm, benefits: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-1">Course Syllabus</label><textarea required rows={4} placeholder="One syllabus topic per line" value={courseForm.syllabus} onChange={(e) => setCourseForm({ ...courseForm, syllabus: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-1">Syllabus Dropdown Sentences (Optional)</label><textarea rows={4} placeholder="One line per topic in format: Topic::Sentence" value={courseForm.syllabus_details} onChange={(e) => setCourseForm({ ...courseForm, syllabus_details: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-1">Next Batch Starts Date</label><input required type="text" placeholder="e.g. 1st May, 2026" value={courseForm.next_batch_starts} onChange={(e) => setCourseForm({ ...courseForm, next_batch_starts: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-1">Batch Summary (Optional)</label><textarea rows={3} value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-1">Batch Image</label><input type="file" accept="image/*" onChange={(e) => setCourseForm({ ...courseForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" /></div>
+                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">{editingCourse ? "Update Batch" : "Add Batch"}</button>
               </form>
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Existing Courses</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Existing Batches</h3>
               <div className="space-y-4">
-                {courses.length === 0 ? <p className="text-gray-500">No courses uploaded yet.</p> : courses.map((course) => (
-                  <div key={course.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-primary/30 transition-all">
+                {courses.length === 0 ? <p className="text-gray-500">No batches added yet.</p> : courses.map((course) => (
+                  <div key={course.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-start group hover:border-primary/30 transition-all">
                     <div className="flex items-center gap-4">
                       {course.image_url && <img src={course.image_url} alt="" className="w-12 h-12 rounded object-cover" />}
-                      <div><h4 className="font-bold text-gray-900">{course.title}</h4><p className="text-sm text-gray-500 truncate max-w-sm">{course.description}</p></div>
+                      <div>
+                        <h4 className="font-bold text-gray-900">{course.title}</h4>
+                        <p className="text-xs text-gray-500 mt-1">Duration: {course.duration || "-"} • Timing: {course.timing || "-"}</p>
+                        <p className="text-xs text-gray-500">Next Batch: {course.next_batch_starts || "-"}</p>
+                        {(() => {
+                          const pricing = getCoursePricing(course);
+                          if (!pricing) return null;
+                          return (
+                            <p className="text-xs text-gray-600 mt-1">
+                              Fees: ₹{formatIndianCurrency(pricing.finalPrice)}
+                              {pricing.discount > 0 && (
+                                <>
+                                  <span className="mx-1 text-gray-400 line-through">₹{formatIndianCurrency(pricing.fees)}</span>
+                                  <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">-{pricing.discount}%</span>
+                                </>
+                              )}
+                            </p>
+                          );
+                        })()}
+                        <p className="text-sm text-gray-500 line-clamp-2 mt-1 max-w-sm">{course.description || course.benefits || "-"}</p>
+                        {parseBatchList(course.syllabus).length > 0 && (
+                          <div className="mt-3 rounded-xl border border-gray-200 overflow-hidden max-w-sm">
+                            <button
+                              type="button"
+                              onClick={() => setOpenBatchSyllabusKey(openBatchSyllabusKey === `batch-${course.id}` ? null : `batch-${course.id}`)}
+                              className="w-full px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-700 flex items-center justify-between"
+                            >
+                              <span>Syllabus Details</span>
+                              <ChevronDown className={`w-4 h-4 transition-transform ${openBatchSyllabusKey === `batch-${course.id}` ? "rotate-180" : ""}`} />
+                            </button>
+                            {openBatchSyllabusKey === `batch-${course.id}` && (
+                              <div className="p-3 bg-white space-y-2">
+                                {parseBatchList(course.syllabus).map((item, idx) => (
+                                  <div key={`${course.id}-syll-${idx}`} className="text-xs text-gray-600">
+                                    • {item}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => handleDeleteCourse(course.id)} className="text-red-500 bg-red-50 p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100"><Trash2 className="w-5 h-5" /></button>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => handleEditCourse(course)} className="text-blue-500 bg-blue-50 p-3 rounded-lg hover:bg-blue-100"><Edit className="w-5 h-5" /></button>
+                      <button onClick={() => handleDeleteCourse(course.id)} className="text-red-500 bg-red-50 p-3 rounded-lg hover:bg-red-100"><Trash2 className="w-5 h-5" /></button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -274,26 +593,158 @@ export default function AdminPage() {
         {activeTab === "blogs" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
-              <div className="flex items-center gap-3 mb-6"><FileText className="w-8 h-8 text-secondary" /><h3 className="text-2xl font-bold text-gray-900">Publish Blog</h3></div>
-              <form onSubmit={handleBlogUpload} className="space-y-5">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-8 h-8 text-secondary" />
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {editingBlog ? "Edit Blog" : "Publish Blog"}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setIsEditorFullScreen(!isEditorFullScreen)} className="text-gray-500 hover:text-gray-900">
+                    {isEditorFullScreen ? <X /> : <Maximize />}
+                  </button>
+                  {editingBlog && (
+                    <button onClick={handleCancelEdit} className="text-sm font-semibold text-gray-600 hover:text-gray-900">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+              <form onSubmit={handleBlogSubmit} className="space-y-5">
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Blog Title</label><input required type="text" value={blogForm.title} onChange={(e) => setBlogForm({ ...blogForm, title: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Author</label><input type="text" placeholder="Admin" value={blogForm.author} onChange={(e) => setBlogForm({ ...blogForm, author: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">Content</label><textarea required rows={6} value={blogForm.content} onChange={(e) => setBlogForm({ ...blogForm, content: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">Cover Image</label><input type="file" accept="image/*" onChange={(e) => setBlogForm({ ...blogForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" /></div>
-                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">Publish Blog</button>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Tags</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {availableBlogTags.map((tag) => {
+                      const selected = blogForm.tags.includes(tag);
+                      return (
+                        <button
+                          type="button"
+                          key={tag}
+                          onClick={() => toggleBlogTag(tag)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selected ? "bg-primary text-white border-primary" : "bg-white text-gray-600 border-gray-300 hover:border-primary/60"}`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customTagInput}
+                      onChange={(e) => setCustomTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomTag();
+                        }
+                      }}
+                      placeholder="Add custom tag (e.g. OCM)"
+                      className="flex-1 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomTag}
+                      className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90"
+                    >
+                      Add Tag
+                    </button>
+                  </div>
+
+                  {blogForm.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {blogForm.tags.map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => toggleBlogTag(tag)}
+                            className="text-primary/80 hover:text-primary"
+                            aria-label={`Remove ${tag}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Content</label>
+                  <RichTextEditor
+                    value={blogForm.content}
+                    onChange={(value) => setBlogForm({ ...blogForm, content: value })}
+                    isFullScreen={isEditorFullScreen}
+                    onCloseFullScreen={() => setIsEditorFullScreen(false)}
+                  />
+                </div>
+                {blogValidationError && <p className="text-sm text-red-500">{blogValidationError}</p>}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Cover Image</label>
+                  <input type="file" accept="image/*" onChange={(e) => setBlogForm({ ...blogForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" />
+                  {editingBlog && editingBlog.image_url && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Current image is preserved. Upload a new one to replace it.
+                    </p>
+                  )}
+                </div>
+                <button disabled={blogSubmitting} type="submit" className="btn-primary w-full py-4 mt-4 text-lg disabled:opacity-60 disabled:cursor-not-allowed">
+                  {blogSubmitting ? "Saving..." : editingBlog ? "Update Blog" : "Publish Blog"}
+                </button>
               </form>
             </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Published Blogs</h3>
-              <div className="space-y-4">
-                {blogs.length === 0 ? <p className="text-gray-500">No blogs published yet.</p> : blogs.map((blog) => (
-                  <div key={blog.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-primary/30 transition-all">
-                    <div><h4 className="font-bold text-gray-900">{blog.title}</h4><p className="text-xs text-gray-500 mt-1">By {blog.author} • {new Date(blog.created_at).toLocaleDateString()}</p></div>
-                    <button onClick={() => handleDeleteBlog(blog.id)} className="text-red-500 bg-red-50 p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100"><Trash2 className="w-5 h-5" /></button>
-                  </div>
-                ))}
+            {!isEditorFullScreen && (
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h3 className="text-2xl font-bold text-gray-900">Published Blogs</h3>
+                  <button onClick={fetchBlogs} className="btn-primary px-4 py-2 flex items-center gap-2 text-sm"><RefreshCw className="w-4 h-4" /> Refresh</button>
+                </div>
+                <div className="mb-6 relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by title, author or tag"
+                    value={blogSearch}
+                    onChange={(e) => setBlogSearch(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 focus:ring-2 focus:ring-primary outline-none"
+                  />
+                </div>
+                <div className="space-y-4">
+                  {visibleBlogs.length === 0 ? <p className="text-gray-500">No blogs found.</p> : visibleBlogs.map((blog) => (
+                    <div key={blog.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-primary/30 transition-all">
+                      <div>
+                        <h4 className="font-bold text-gray-900">{blog.title}</h4>
+                        <p className="text-xs text-gray-500 mt-1">By {blog.author} • {new Date(blog.created_at).toLocaleDateString()}</p>
+                        {Array.isArray(blog.tags) && blog.tags.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {blog.tags.map((tag: string) => (
+                              <span key={`${blog.id}-${tag}`} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a href={`/blogs/${blog.id}`} target="_blank" rel="noreferrer" className="text-emerald-600 bg-emerald-50 p-3 rounded-lg hover:bg-emerald-100" aria-label="View blog">
+                          <ExternalLink className="w-5 h-5" />
+                        </a>
+                        <button onClick={() => handleEditBlog(blog)} className="text-blue-500 bg-blue-50 p-3 rounded-lg hover:bg-blue-100">
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button disabled={blogActionLoadingId === blog.id} onClick={() => handleDeleteBlog(blog.id)} className="text-red-500 bg-red-50 p-3 rounded-lg hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -326,7 +777,7 @@ export default function AdminPage() {
                       <h4 className="font-bold text-gray-900">{video.title}</h4>
                       <a href={video.youtube_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">{video.youtube_url}</a>
                     </div>
-                    <button onClick={() => handleDeleteVideo(video.id)} className="text-red-500 bg-red-50 p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100">
+                    <button onClick={() => handleDeleteVideo(video.id)} className="text-red-500 bg-red-50 p-3 rounded-lg hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-all">
                       <Trash2 className="w-5 h-5"/>
                     </button>
                   </div>

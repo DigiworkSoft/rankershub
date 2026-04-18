@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS courses (
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   image_url TEXT,
+  duration TEXT,
+  timing TEXT,
+  benefits TEXT,
+  syllabus TEXT,
+  syllabus_details TEXT,
+  next_batch_starts TEXT,
+  fees NUMERIC(10, 2),
+  discount_percent NUMERIC(5, 2),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

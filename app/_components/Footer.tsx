@@ -1,8 +1,26 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, Phone, MapPin, Instagram, Youtube, MessageCircle } from "lucide-react";
+import { PRESET_BLOG_TAGS } from "@/lib/blog-tags";
+import { query } from "@/lib/db";
 
-export default function Footer() {
+type FooterBlog = {
+  id: number;
+  title: string;
+};
+
+async function getFooterBlogs(): Promise<FooterBlog[]> {
+  try {
+    const result = await query("SELECT id, title FROM blogs ORDER BY created_at DESC LIMIT 8");
+    return result.rows as FooterBlog[];
+  } catch {
+    return [];
+  }
+}
+
+export default async function Footer() {
+  const latestBlogs = await getFooterBlogs();
+
   return (
     <footer className="bg-gray-900 text-gray-300 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -11,11 +29,11 @@ export default function Footer() {
           <div className="space-y-6">
             <Link href="/" className="flex items-center gap-3 group">
               <Image
-                src="/assets/photos/logo1.png"
+                src="/assets/photos/rankerhub logo.png"
                 alt="Rankers Hub Logo"
-                width={80}
-                height={80}
-                className="h-20 md:h-20 w-auto object-contain"
+                width={120}
+                height={120}
+                className="h-24 md:h-28 w-auto object-contain"
               />
             </Link>
             <p className="text-sm leading-relaxed">
@@ -77,8 +95,42 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-gray-800 text-center text-xs">
-          <p>&copy; {new Date().getFullYear()} Rankerhub Education. All rights reserved.</p>
+        <div className="pt-8 border-t border-gray-800">
+          <div className="mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="text-center md:text-left">
+                <h4 className="text-white/90 font-semibold mb-3 tracking-wide text-xs uppercase">Blog Topics</h4>
+                <ul className="space-y-2 text-xs">
+                  {PRESET_BLOG_TAGS.map((tag) => (
+                    <li key={tag}>
+                      <Link href={`/blogs?tag=${encodeURIComponent(tag)}`} className="hover:text-secondary transition-colors">
+                        {tag}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="text-center md:text-left">
+                <h4 className="text-white/90 font-semibold mb-3 tracking-wide text-xs uppercase">Blogs</h4>
+                {latestBlogs.length === 0 ? (
+                  <p className="text-xs text-gray-400">No blogs published yet.</p>
+                ) : (
+                  <ul className="space-y-2 text-xs">
+                    {latestBlogs.map((blog) => (
+                      <li key={blog.id}>
+                        <Link href={`/blogs/${blog.id}`} className="hover:text-secondary transition-colors line-clamp-1">
+                          {blog.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-center text-xs">&copy; {new Date().getFullYear()} Rankerhub Education. All rights reserved.</p>
         </div>
       </div>
     </footer>

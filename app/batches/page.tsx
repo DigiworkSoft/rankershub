@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { query } from "@/lib/db";
+import { ensureDefaultBatches } from "@/lib/batch-seed";
 import BatchesClient from "./BatchesClient";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +12,12 @@ export const metadata: Metadata = {
 
 // Fetch all data server-side — no client network waterfalls
 async function getData() {
+  await ensureDefaultBatches(query);
+
   const [videosResult, faqsResult, coursesResult] = await Promise.all([
     query("SELECT id, title, youtube_url FROM youtube_videos ORDER BY created_at DESC"),
     query("SELECT id, category, question, answer FROM faqs ORDER BY created_at ASC"),
-    query("SELECT id, title, description FROM courses ORDER BY created_at DESC"),
+    query("SELECT id, title, description, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent, image_url FROM courses ORDER BY created_at DESC"),
   ]);
 
   return {

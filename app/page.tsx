@@ -1,11 +1,12 @@
 import { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, BookOpen, Users, Trophy, Star, PlayCircle } from "lucide-react";
+import { BookOpen, Users, Trophy, Star } from "lucide-react";
 import EnquiryForm from "./_components/EnquiryForm";
 import FacultySection from "./_components/FacultySection";
 import FeedbackSection from "./_components/FeedbackSection";
 import HomeHero from "./_components/HomeHero";
+import DemoLecturesSection from "./_components/DemoLecturesSection";
+import RelatedBlogsAutoScroll from "./_components/RelatedBlogsAutoScroll";
+import BatchesInfoSection from "./_components/BatchesInfoSection";
 
 export const metadata: Metadata = {
   title: "RankersHub — Best Commerce Classes in Pune",
@@ -81,6 +82,10 @@ export default function HomePage() {
 
       <FacultySection />
 
+      <BatchesInfoSection />
+
+      <RelatedBlogsAutoScroll />
+
       {/* Enquiry Section */}
       <section className="py-12 md:py-24 bg-white overflow-hidden relative">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl opacity-50 -z-10" />
@@ -110,6 +115,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <DemoLecturesSection />
 
       <FeedbackSection />
     </div>

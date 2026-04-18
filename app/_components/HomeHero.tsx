@@ -35,22 +35,9 @@ export default function HomeHero() {
               >
                 Book Your Slot Now <ArrowRight className="w-5 h-5" />
               </Link>
-              <button className="flex items-center justify-center gap-3 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold text-sm sm:text-base md:text-lg text-gray-700 hover:bg-indigo-50 transition-all border border-gray-200 hover:border-indigo-200">
+              <Link href="/#informative-videos" className="flex items-center justify-center gap-3 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold text-sm sm:text-base md:text-lg text-gray-700 hover:bg-indigo-50 transition-all border border-gray-200 hover:border-indigo-200">
                 <PlayCircle className="w-6 h-6 text-primary" /> Watch Demo
-              </button>
-            </div>
-
-            <div className="mt-8 md:mt-12 flex items-center gap-4 sm:gap-6 md:gap-8 border-t border-gray-100 pt-6 md:pt-8">
-              <div>
-                <p className="text-3xl font-bold text-primary">10k+</p>
-                <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">Impacted</p>
-              </div>
-              <div className="w-px h-10 bg-gray-200" />
-              <div className="w-px h-10 bg-gray-200" />
-              <div>
-                <p className="text-3xl font-bold text-primary">10+</p>
-                <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">Expert Mentors</p>
-              </div>
+              </Link>
             </div>
           </motion.div>
 
@@ -66,7 +53,7 @@ export default function HomeHero() {
                 alt="Students studying"
                 width={600}
                 height={750}
-                className="w-full aspect-[4/5] object-cover"
+                className="w-[95%] sm:w-full mx-auto aspect-[4/5] object-cover"
                 priority
               />
             </div>
