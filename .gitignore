@@ -38,3 +38,6 @@ next-env.d.ts
 # UPLOADS & LOCAL MEDIA (prevent huge repository bloat and PII leaks)
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Project analysis
+PROJECT_ANALYSIS.md

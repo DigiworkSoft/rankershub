@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getImageUrl } from "@/lib/utils";
@@ -14,6 +14,11 @@ interface Blog {
 export default function RelatedBlogsAutoScroll() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const uniqueBlogs = useMemo(
+    () => Array.from(new Map(blogs.map(item => [item.id, item])).values()),
+    [blogs]
+  );
 
   useEffect(() => {
     const fetchBlogs = async () => {
@@ -43,14 +48,14 @@ export default function RelatedBlogsAutoScroll() {
     const startScrolling = () => {
       scrollInterval = setInterval(() => {
         if (scrollContainer) {
-          const scrollAmount = 2; // Adjust scroll speed here
+          const scrollAmount = 2;
           if (scrollContainer.scrollLeft >= scrollContainer.scrollWidth - scrollContainer.clientWidth) {
             scrollContainer.scrollLeft = 0;
           } else {
             scrollContainer.scrollLeft += scrollAmount;
           }
         }
-      }, 50); // Adjust scroll interval here
+      }, 50);
     };
 
     const stopScrolling = () => {
@@ -69,13 +74,12 @@ export default function RelatedBlogsAutoScroll() {
       scrollContainer.removeEventListener("mouseenter", stopScrolling);
       scrollContainer.removeEventListener("mouseleave", startScrolling);
     };
-  }, [blogs]);
+  }, [uniqueBlogs]);
 
   if (blogs.length === 0) {
     return null;
   }
 
-  const uniqueBlogs = Array.from(new Map(blogs.map(item => [item.id, item])).values());
   const duplicatedBlogs = uniqueBlogs.length > 3 ? [...uniqueBlogs, ...uniqueBlogs] : uniqueBlogs;
 
   return (
@@ -95,9 +99,8 @@ export default function RelatedBlogsAutoScroll() {
                   <Image
                     src={getImageUrl(blog.image_url)}
                     alt={blog.title}
-                    layout="fill"
-                    objectFit="contain"
-                    className="rounded-t-lg"
+                    fill
+                    className="rounded-t-lg object-contain"
                   />
                 </div>
                 <div className="p-5">
