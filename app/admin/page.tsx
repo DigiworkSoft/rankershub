@@ -65,7 +65,7 @@ export default function AdminPage() {
       const title = String(blog.title || "").toLowerCase();
       const author = String(blog.author || "").toLowerCase();
       const tags = Array.isArray(blog.tags) ? blog.tags.map((tag: string) => String(tag).toLowerCase()) : [];
-      return title.includes(needle) || author.includes(needle) || tags.some((tag) => tag.includes(needle));
+      return title.includes(needle) || author.includes(needle) || tags.some((tag: string) => tag.includes(needle));
     });
   }, [blogSearch, blogs]);
 
