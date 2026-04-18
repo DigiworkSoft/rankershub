@@ -3,13 +3,7 @@ import { query } from "@/lib/db";
 import { verifyToken, getTokenFromRequest } from "@/lib/auth";
 import { validateUploadedFile, sanitizeFilename } from "@/lib/upload";
 import { validateOrigin } from "@/lib/csrf";
-import fs from "fs";
-import path from "path";
-
-const uploadDir = path.join(process.cwd(), "public/uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+import { uploadFile } from "@/lib/storage";
 
 function normalizeTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
@@ -170,13 +164,10 @@ export async function POST(request: Request) {
 
       const filename = sanitizeFilename("blog", file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = path.join(uploadDir, filename);
-
-      fs.writeFileSync(filePath, buffer);
-      image_url = `/uploads/${filename}`;
+      image_url = await uploadFile(filename, buffer, file.type);
     }
 
-    // Insert into local PostgreSQL
+    // Insert into PostgreSQL
     const result = await query(
       "INSERT INTO blogs (title, content, author, image_url, tags) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [title, content, author, image_url, tags]
@@ -243,10 +234,7 @@ export async function PUT(request: Request) {
 
       const filename = sanitizeFilename("blog", file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = path.join(uploadDir, filename);
-
-      fs.writeFileSync(filePath, buffer);
-      image_url = `/uploads/${filename}`;
+      image_url = await uploadFile(filename, buffer, file.type);
     }
 
     const result = await query(

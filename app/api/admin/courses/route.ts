@@ -3,14 +3,7 @@ import { query } from "@/lib/db";
 import { verifyToken, getTokenFromRequest } from "@/lib/auth";
 import { validateUploadedFile, sanitizeFilename } from "@/lib/upload";
 import { ensureCourseBatchColumns } from "@/lib/batch-seed";
-import fs from "fs";
-import path from "path";
-
-// Ensure the directory exists
-const uploadDir = path.join(process.cwd(), "public/uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+import { uploadFile } from "@/lib/storage";
 
 export async function POST(request: Request) {
   const token = getTokenFromRequest(request);
@@ -58,13 +51,10 @@ export async function POST(request: Request) {
 
       const filename = sanitizeFilename("course", file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = path.join(uploadDir, filename);
-
-      fs.writeFileSync(filePath, buffer);
-      image_url = `/uploads/${filename}`;
+      image_url = await uploadFile(filename, buffer, file.type);
     }
 
-    // Insert into local PostgreSQL
+    // Insert into PostgreSQL
     const result = await query(
       `INSERT INTO courses (title, description, image_url, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -134,10 +124,7 @@ export async function PUT(request: Request) {
 
       const filename = sanitizeFilename("course", file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = path.join(uploadDir, filename);
-
-      fs.writeFileSync(filePath, buffer);
-      image_url = `/uploads/${filename}`;
+      image_url = await uploadFile(filename, buffer, file.type);
     }
 
     await query(
