@@ -41,7 +41,7 @@ export default async function BlogArticlePage({ params }: Params) {
     const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
     return (
-        <main className="relative min-h-screen bg-gray-50 overflow-hidden font-outfit">
+        <section className="relative min-h-screen bg-gray-50 overflow-hidden font-outfit">
             <article className="pt-24 md:pt-32 pb-12 md:pb-20 px-4 relative max-w-6xl mx-auto">
         <Link href="/blogs" className="inline-flex items-center gap-2 text-primary font-bold mb-8 md:mb-10 hover:gap-4 transition-all group">
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to Insights
@@ -91,6 +91,6 @@ export default async function BlogArticlePage({ params }: Params) {
 
                 <RelatedBlogs posts={relatedBlogs} />
       </article>
-    </main>
+    </section>
   );
 }

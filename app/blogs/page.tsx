@@ -13,17 +13,22 @@ export default async function BlogsPage({
 }: {
   searchParams: { tag?: string };
 }) {
-  const result = await query("SELECT * FROM blogs ORDER BY created_at DESC");
-  const initialPosts = result.rows;
+  let initialPosts = [];
+  try {
+    const result = await query("SELECT * FROM blogs ORDER BY created_at DESC");
+    initialPosts = result.rows;
+  } catch (err) {
+    console.error("Failed to fetch blogs:", err);
+  }
   const initialTag = searchParams?.tag ? decodeURIComponent(searchParams.tag) : null;
 
   return (
-    <main className="relative min-h-screen bg-gray-50 overflow-hidden font-outfit">
+    <section className="relative min-h-screen bg-gray-50 overflow-hidden font-outfit">
       {/* 
         Note: SiteBackgroundEffects, ScrollToTop, Navbar, and Footer 
         are already provided by RootLayout.
       */}
       <BlogsClient initialPosts={initialPosts} initialTag={initialTag} />
-    </main>
+    </section>
   );
 }
