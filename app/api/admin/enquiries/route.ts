@@ -9,8 +9,32 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await query("SELECT * FROM enquiries ORDER BY created_at DESC");
-    return NextResponse.json(result.rows || []);
+    const url = new URL(request.url);
+    const search = url.searchParams;
+    const page = Math.max(1, Number(search.get("page") || 1));
+    const limit = Math.max(1, Math.min(50, Number(search.get("limit") || 10)));
+    const offset = (page - 1) * limit;
+
+    const countRes = await query("SELECT COUNT(*)::int AS total FROM enquiries");
+    const totalItems = countRes.rows[0]?.total || 0;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const result = await query(
+      "SELECT * FROM enquiries ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+      [limit, offset]
+    );
+
+    return NextResponse.json({
+      items: result.rows || [],
+      meta: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      }
+    });
   } catch (_err) {
     return NextResponse.json({ error: "Failed to fetch enquiries" }, { status: 500 });
   }

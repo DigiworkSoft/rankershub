@@ -36,3 +36,31 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Failed to delete video" }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  const token = getTokenFromRequest(request);
+  if (!token || !verifyToken(token)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  try {
+    const { title, youtube_url } = await request.json();
+    if (!title || !youtube_url) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+    const result = await query(
+      "UPDATE youtube_videos SET title = $1, youtube_url = $2 WHERE id = $3 RETURNING *",
+      [title, youtube_url, Number(id)]
+    );
+    if (result.rowCount === 0) {
+      return NextResponse.json({ error: "Video not found" }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, video: result.rows[0] });
+  } catch (_err) {
+    return NextResponse.json({ error: "Failed to update video" }, { status: 500 });
+  }
+}
+

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Book, FileText, Trash2, RefreshCw, PlayCircle, Edit, X, Maximize, ChevronDown, ExternalLink, Search } from "lucide-react";
+import { Book, FileText, Trash2, RefreshCw, Edit, X, Maximize, ExternalLink, Search, ChevronDown, ChevronRight, Menu, MessageSquare, HelpCircle, Layers, LayoutDashboard, BookOpen } from "lucide-react";
 import RichTextEditor from "./_components/RichTextEditor";
 import { PRESET_BLOG_TAGS } from "@/lib/blog-tags";
 
@@ -19,21 +19,54 @@ export default function AdminPage() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
-  const [activeTab, setActiveTab] = useState("enquiries");
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [stats, setStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    courses: true,
+    blogs: true,
+    faqs: true,
+    popups: true,
+  });
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [blogs, setBlogs] = useState<any[]>([]);
-  const [videos, setVideos] = useState<any[]>([]);
   const [faqs, setFaqs] = useState<any[]>([]);
+  const [popups, setPopups] = useState<any[]>([]);
   const [editingCourse, setEditingCourse] = useState<any | null>(null);
-  const [openBatchSyllabusKey, setOpenBatchSyllabusKey] = useState<string | null>(null);
   const [editingBlog, setEditingBlog] = useState<any | null>(null);
+  const [editingFaq, setEditingFaq] = useState<any | null>(null);
+  const [editingPopup, setEditingPopup] = useState<any | null>(null);
+  const [popupForm, setPopupForm] = useState<{
+    title: string;
+    description: string;
+    ranking: string;
+    duration: string;
+    locations: string[];
+    file: File | null;
+  }>({
+    title: "",
+    description: "",
+    ranking: "1",
+    duration: "5",
+    locations: [],
+    file: null,
+  });
   const [isEditorFullScreen, setIsEditorFullScreen] = useState(false);
   const [blogSubmitting, setBlogSubmitting] = useState(false);
   const [blogActionLoadingId, setBlogActionLoadingId] = useState<number | null>(null);
   const [blogSearch, setBlogSearch] = useState("");
   const [blogValidationError, setBlogValidationError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number } | null>(null);
+  const [enquiryPage, setEnquiryPage] = useState(1);
+  const [enquiryMeta, setEnquiryMeta] = useState<any>(null);
+  const [blogPage, setBlogPage] = useState(1);
+  const [blogMeta, setBlogMeta] = useState<any>(null);
 
   useEffect(() => {
     if (!confirmDelete) return;
@@ -42,6 +75,26 @@ export default function AdminPage() {
     }, 4000);
     return () => clearTimeout(timer);
   }, [confirmDelete]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsSidebarVisible(true);
+      } else {
+        setIsSidebarVisible(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarVisible(false);
+    }
+  }, [activeTab]);
+
 
   const [courseForm, setCourseForm] = useState({
     title: "",
@@ -55,9 +108,31 @@ export default function AdminPage() {
     next_batch_starts: "",
     description: "",
     file: null as File | null,
+    fee_plans: [] as Array<{ duration: string; fees: string; discount_percent: string }>,
   });
+
+  const addFeePlanRow = () => {
+    setCourseForm((prev) => ({
+      ...prev,
+      fee_plans: [...prev.fee_plans, { duration: "", fees: "", discount_percent: "" }],
+    }));
+  };
+
+  const removeFeePlanRow = (index: number) => {
+    setCourseForm((prev) => ({
+      ...prev,
+      fee_plans: prev.fee_plans.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const changeFeePlanRow = (index: number, field: "duration" | "fees" | "discount_percent", value: string) => {
+    setCourseForm((prev) => ({
+      ...prev,
+      fee_plans: prev.fee_plans.map((plan, idx) => (idx === index ? { ...plan, [field]: value } : plan)),
+    }));
+  };
+
   const [blogForm, setBlogForm] = useState<{ title: string; content: string; author: string; tags: string[]; file: File | null; published_at: string }>({ title: "", content: "", author: "Admin", tags: [], file: null, published_at: "" });
-  const [videoForm, setVideoForm] = useState({ title: "", youtube_url: "" });
   const [faqForm, setFaqForm] = useState({ question: "", answer: "", category: "Admission FAQs" });
   const [customTagInput, setCustomTagInput] = useState("");
 
@@ -74,16 +149,7 @@ export default function AdminPage() {
     return Array.from(merged);
   }, [blogs]);
 
-  const visibleBlogs = useMemo(() => {
-    const needle = blogSearch.trim().toLowerCase();
-    if (!needle) return blogs;
-    return blogs.filter((blog) => {
-      const title = String(blog.title || "").toLowerCase();
-      const author = String(blog.author || "").toLowerCase();
-      const tags = Array.isArray(blog.tags) ? blog.tags.map((tag: string) => String(tag).toLowerCase()) : [];
-      return title.includes(needle) || author.includes(needle) || tags.some((tag: string) => tag.includes(needle));
-    });
-  }, [blogSearch, blogs]);
+
 
   useEffect(() => {
     fetch("/api/admin/verify", { credentials: "include" })
@@ -128,23 +194,64 @@ export default function AdminPage() {
     return res;
   };
 
-  const fetchEnquiries = async () => { const res = await authedFetch("/api/admin/enquiries"); const data = await res.json(); setEnquiries(data || []); };
+  const fetchEnquiries = async () => {
+    const res = await authedFetch(`/api/admin/enquiries?page=${enquiryPage}&limit=10`);
+    const data = await res.json();
+    setEnquiries(data?.items || []);
+    setEnquiryMeta(data?.meta || null);
+  };
   const fetchCourses = async () => { const res = await fetch("/api/courses"); const data = await res.json(); setCourses(data || []); };
   const fetchBlogs = async () => {
-    const res = await authedFetch("/api/admin/blogs?page=1&limit=100");
+    const queryParam = blogSearch.trim() ? `&q=${encodeURIComponent(blogSearch.trim())}` : "";
+    const res = await authedFetch(`/api/admin/blogs?page=${blogPage}&limit=10${queryParam}`);
     const data = await res.json();
-    setBlogs(Array.isArray(data) ? data : data?.items || []);
+    setBlogs(data?.items || []);
+    setBlogMeta(data?.meta || null);
   };
-  const fetchVideos = async () => { const res = await fetch("/api/videos"); const data = await res.json(); setVideos(data || []); };
   const fetchFaqs = async () => { const res = await fetch("/api/faqs"); const data = await res.json(); setFaqs(data || []); };
+  const fetchPopups = async () => {
+    const res = await authedFetch("/api/admin/popups");
+    const data = await res.json();
+    setPopups(Array.isArray(data) ? data : []);
+  };
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const res = await authedFetch("/api/admin/stats");
+      const data = await res.json();
+      if (res.ok) {
+        setStats(data);
+      }
+    } catch (_err) {
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (activeTab === "dashboard") fetchStats();
     if (activeTab === "enquiries") fetchEnquiries();
-    if (activeTab === "courses") fetchCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isAuthenticated, enquiryPage]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
     if (activeTab === "blogs") fetchBlogs();
-    if (activeTab === "videos") fetchVideos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isAuthenticated, blogPage, blogSearch]);
+
+  useEffect(() => {
+    setBlogPage(1);
+  }, [blogSearch]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (activeTab === "courses") fetchCourses();
     if (activeTab === "faqs") fetchFaqs();
+    if (activeTab === "popups") fetchPopups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
 
   useEffect(() => {
@@ -178,6 +285,7 @@ export default function AdminPage() {
     formData.append("syllabus", courseForm.syllabus);
     formData.append("syllabus_details", courseForm.syllabus_details);
     formData.append("next_batch_starts", courseForm.next_batch_starts);
+    formData.append("fee_plans", JSON.stringify(courseForm.fee_plans || []));
     if (courseForm.file) formData.append("image", courseForm.file);
 
     try {
@@ -199,6 +307,7 @@ export default function AdminPage() {
           next_batch_starts: "",
           description: "",
           file: null,
+          fee_plans: [],
         });
         setEditingCourse(null);
         fetchCourses();
@@ -212,14 +321,19 @@ export default function AdminPage() {
       title: course.title || "",
       duration: course.duration || "",
       timing: course.timing || "",
-    fees: course.fees != null ? String(course.fees) : "",
-    discount_percent: course.discount_percent != null ? String(course.discount_percent) : "",
+      fees: course.fees != null ? String(course.fees) : "",
+      discount_percent: course.discount_percent != null ? String(course.discount_percent) : "",
       benefits: course.benefits || "",
       syllabus: course.syllabus || "",
-    syllabus_details: course.syllabus_details || "",
+      syllabus_details: course.syllabus_details || "",
       next_batch_starts: course.next_batch_starts || "",
       description: course.description || "",
       file: null,
+      fee_plans: course.fee_plans ? course.fee_plans.map((p: any) => ({
+        duration: p.duration || "",
+        fees: p.fees != null ? String(p.fees) : "",
+        discount_percent: p.discount_percent != null ? String(p.discount_percent) : "",
+      })) : [],
     });
     window.scrollTo(0, 0);
   };
@@ -230,14 +344,15 @@ export default function AdminPage() {
       title: "",
       duration: "",
       timing: "",
-    fees: "",
-    discount_percent: "",
+      fees: "",
+      discount_percent: "",
       benefits: "",
       syllabus: "",
-    syllabus_details: "",
+      syllabus_details: "",
       next_batch_starts: "",
       description: "",
       file: null,
+      fee_plans: [],
     });
   };
 
@@ -354,11 +469,7 @@ export default function AdminPage() {
     setCustomTagInput("");
   };
 
-  const parseBatchList = (value?: string) =>
-    String(value || "")
-      .split(/\n|,/)
-      .map((line) => line.trim())
-      .filter(Boolean);
+
 
   const formatIndianCurrency = (value: number) =>
     new Intl.NumberFormat("en-IN", {
@@ -377,36 +488,40 @@ export default function AdminPage() {
     return { fees, discount: validDiscount, finalPrice };
   };
 
-  const handleVideoAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await authedFetch("/api/admin/videos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(videoForm),
-      });
-      if (res.ok) {
-        alert("Video added!");
-        setVideoForm({ title: "", youtube_url: "" });
-        fetchVideos();
-      } else throw new Error();
-    } catch { alert("Failed to add video"); }
-  };
+
   
   const handleFaqAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await authedFetch("/api/admin/faqs", {
-        method: "POST",
+      const endpoint = editingFaq ? `/api/admin/faqs?id=${editingFaq.id}` : "/api/admin/faqs";
+      const method = editingFaq ? "PUT" : "POST";
+      const res = await authedFetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(faqForm),
       });
       if (res.ok) {
-        alert("FAQ added!");
-        setFaqForm({ question: "", answer: "", category: "Admission FAQs" });
+        alert(editingFaq ? "FAQ updated successfully" : "FAQ added successfully");
+        setFaqForm({ question: "", answer: "", category: faqForm.category });
+        setEditingFaq(null);
         fetchFaqs();
       } else throw new Error();
-    } catch { alert("Failed to add FAQ"); }
+    } catch { alert(editingFaq ? "Failed to update FAQ" : "Failed to add FAQ"); }
+  };
+
+  const handleEditFaq = (faq: any) => {
+    setEditingFaq(faq);
+    setFaqForm({
+      question: faq.question || "",
+      answer: faq.answer || "",
+      category: faq.category || "Admission FAQs",
+    });
+    window.scrollTo(0, 0);
+  };
+
+  const cancelFaqEdit = () => {
+    setEditingFaq(null);
+    setFaqForm({ question: "", answer: "", category: "Admission FAQs" });
   };
 
   const handleDeleteEnquiry = async (id: number) => {
@@ -450,15 +565,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteVideo = async (id: number) => {
-    if (confirmDelete?.type === "video" && confirmDelete.id === id) {
-      await authedFetch(`/api/admin/videos?id=${id}`, { method: "DELETE" });
-      setConfirmDelete(null);
-      fetchVideos();
-    } else {
-      setConfirmDelete({ type: "video", id });
-    }
-  };
+
 
   const handleDeleteFaq = async (id: number) => {
     if (confirmDelete?.type === "faq" && confirmDelete.id === id) {
@@ -470,9 +577,98 @@ export default function AdminPage() {
     }
   };
 
+  const handlePopupAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!popupForm.title) {
+      alert("Popup title is required");
+      return;
+    }
+    if (popupForm.locations.length === 0) {
+      alert("Please select at least one location");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("title", popupForm.title);
+    formData.append("description", popupForm.description);
+    formData.append("ranking", popupForm.ranking);
+    formData.append("duration", popupForm.duration);
+    formData.append("locations", JSON.stringify(popupForm.locations));
+    if (popupForm.file) {
+      formData.append("image", popupForm.file);
+    }
+
+    try {
+      const endpoint = editingPopup ? `/api/admin/popups?id=${editingPopup.id}` : "/api/admin/popups";
+      const method = editingPopup ? "PUT" : "POST";
+      const res = await authedFetch(endpoint, {
+        method,
+        body: formData,
+      });
+
+      if (res.ok) {
+        alert(editingPopup ? "Popup updated successfully" : "Popup added successfully");
+        setPopupForm({
+          title: "",
+          description: "",
+          ranking: "1",
+          duration: "5",
+          locations: [],
+          file: null,
+        });
+        setEditingPopup(null);
+        fetchPopups();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || "Failed to save popup");
+      }
+    } catch {
+      alert(editingPopup ? "Failed to update popup" : "Failed to add popup");
+    }
+  };
+
+  const handleEditPopup = (popup: any) => {
+    setEditingPopup(popup);
+    setPopupForm({
+      title: popup.title || "",
+      description: popup.description || "",
+      ranking: String(popup.ranking ?? "1"),
+      duration: String(popup.duration ?? "5"),
+      locations: popup.locations || [],
+      file: null,
+    });
+    window.scrollTo(0, 0);
+  };
+
+  const cancelPopupEdit = () => {
+    setEditingPopup(null);
+    setPopupForm({
+      title: "",
+      description: "",
+      ranking: "1",
+      duration: "5",
+      locations: [],
+      file: null,
+    });
+  };
+
+  const handleDeletePopup = async (id: number) => {
+    if (confirmDelete?.type === "popup" && confirmDelete.id === id) {
+      const res = await authedFetch(`/api/admin/popups?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(null);
+        fetchPopups();
+      } else {
+        alert("Failed to delete popup");
+      }
+    } else {
+      setConfirmDelete({ type: "popup", id });
+    }
+  };
+
   if (!authChecked) {
     return (
-      <div className="pt-24 min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
@@ -480,7 +676,7 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="pt-24 min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Login (Local)</h2>
           <p className="text-sm text-gray-500 mb-6">Login with your local admin credentials.</p>
@@ -501,30 +697,439 @@ export default function AdminPage() {
     );
   }
 
-  const sidebarItems = [
-    { key: "enquiries", label: "Enquiries" },
-    { key: "courses", label: "Manage Batches" },
-    { key: "blogs", label: "Manage Blogs" },
-    { key: "videos", label: "YouTube Videos" },
-    { key: "faqs", label: "Manage FAQs" },
-  ];
-
   return (
-    <div className="pt-24 min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex h-screen overflow-hidden relative">
+      {/* Sidebar Backdrop Overlay on Mobile */}
+      {isSidebarVisible && (
+        <div 
+          onClick={() => setIsSidebarVisible(false)}
+          className="fixed inset-0 bg-black/30 z-30 md:hidden animate-fadeIn"
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg flex flex-col pt-8 border-r border-gray-100">
-        <h2 className="text-2xl font-bold text-center mb-8 text-primary">Admin Panel</h2>
-        <button onClick={logout} className="mx-6 mb-4 px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">Logout</button>
-        {sidebarItems.map((item) => (
-          <button key={item.key} onClick={() => setActiveTab(item.key)}
-            className={`px-6 py-4 text-left font-semibold transition-colors ${activeTab === item.key ? "bg-primary/5 text-primary border-r-4 border-primary" : "text-gray-600 hover:bg-gray-50"}`}>
-            {item.label}
+      <div className={`bg-white shadow-lg flex flex-col pt-8 border-r border-gray-100 h-full select-none transition-all duration-300 ease-in-out overflow-hidden z-40 md:z-auto ${
+        isSidebarVisible 
+          ? "w-64 translate-x-0 fixed md:relative" 
+          : "w-64 -translate-x-full fixed md:relative md:w-0 md:-translate-x-full border-none shadow-none"
+      }`}>
+        <div className="flex items-center px-6 mb-6">
+          <h2 className="text-2xl font-bold text-primary">Admin Panel</h2>
+        </div>
+        <button onClick={logout} className="mx-6 mb-6 px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:text-red-500 transition-colors">Logout</button>
+        
+        <div className="flex-1 overflow-y-auto space-y-2 px-3">
+          {/* Dashboard - Direct Link */}
+          <button 
+            onClick={() => setActiveTab("dashboard")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${activeTab === "dashboard" ? "bg-primary/5 text-primary font-bold" : "text-gray-600 hover:bg-gray-50"}`}
+          >
+            <LayoutDashboard className="w-5 h-5 shrink-0" />
+            <span>Dashboard</span>
           </button>
-        ))}
+
+          {/* Enquiries - Direct Link */}
+          <button 
+            onClick={() => setActiveTab("enquiries")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${activeTab === "enquiries" ? "bg-primary/5 text-primary font-bold" : "text-gray-600 hover:bg-gray-50"}`}
+          >
+            <MessageSquare className="w-5 h-5 shrink-0" />
+            <span>Enquiries</span>
+          </button>
+
+          {/* Manage Batches Accordion */}
+          <div>
+            <button 
+              onClick={() => toggleSection("courses")}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition-all text-gray-600 hover:bg-gray-50 ${activeTab === "courses" ? "text-primary font-bold" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <Book className="w-5 h-5 shrink-0" />
+                <span>Manage Batches</span>
+              </div>
+              {expandedSections.courses ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            </button>
+            {expandedSections.courses && (
+              <div className="ml-9 pl-2 border-l border-gray-100 mt-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveTab("courses");
+                    setTimeout(() => document.getElementById("add-batch-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  + Add New Batch
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab("courses");
+                    setTimeout(() => document.getElementById("existing-batches-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  View Batches
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manage Blogs Accordion */}
+          <div>
+            <button 
+              onClick={() => toggleSection("blogs")}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition-all text-gray-600 hover:bg-gray-50 ${activeTab === "blogs" ? "text-primary font-bold" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 shrink-0" />
+                <span>Manage Blogs</span>
+              </div>
+              {expandedSections.blogs ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            </button>
+            {expandedSections.blogs && (
+              <div className="ml-9 pl-2 border-l border-gray-100 mt-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveTab("blogs");
+                    setTimeout(() => document.getElementById("add-blog-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  + Publish Blog
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab("blogs");
+                    setTimeout(() => document.getElementById("existing-blogs-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  View Published Blogs
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manage FAQs Accordion */}
+          <div>
+            <button 
+              onClick={() => toggleSection("faqs")}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition-all text-gray-600 hover:bg-gray-50 ${activeTab === "faqs" ? "text-primary font-bold" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <HelpCircle className="w-5 h-5 shrink-0" />
+                <span>Manage FAQs</span>
+              </div>
+              {expandedSections.faqs ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            </button>
+            {expandedSections.faqs && (
+              <div className="ml-9 pl-2 border-l border-gray-100 mt-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveTab("faqs");
+                    setTimeout(() => document.getElementById("add-faq-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  + Add New FAQ
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab("faqs");
+                    setTimeout(() => document.getElementById("existing-faqs-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  View FAQs
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manage Pop-ups Accordion */}
+          <div>
+            <button 
+              onClick={() => toggleSection("popups")}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition-all text-gray-600 hover:bg-gray-50 ${activeTab === "popups" ? "text-primary font-bold" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="w-5 h-5 shrink-0" />
+                <span>Manage Pop-ups</span>
+              </div>
+              {expandedSections.popups ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            </button>
+            {expandedSections.popups && (
+              <div className="ml-9 pl-2 border-l border-gray-100 mt-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveTab("popups");
+                    setTimeout(() => document.getElementById("add-popup-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  + Add New Pop-up
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab("popups");
+                    setTimeout(() => document.getElementById("existing-popups-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  View Pop-ups
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-10 h-[calc(100vh-6rem)] overflow-y-auto">
+      <div className="flex-1 h-full flex flex-col overflow-hidden">
+        {/* Top Navbar in Content Area */}
+        <div className="h-16 border-b border-gray-100 bg-white flex items-center px-8 gap-4 shrink-0 justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+              className="p-2 hover:bg-gray-50 rounded-xl border border-gray-200 text-gray-600 transition-colors"
+              title={isSidebarVisible ? "Collapse Sidebar" : "Expand Sidebar"}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-semibold text-gray-400 capitalize">{activeTab}</span>
+          </div>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto">
+
+        {/* DASHBOARD */}
+        {activeTab === "dashboard" && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div>
+                <h3 className="text-3xl font-extrabold text-gray-900 tracking-tight">Dashboard Overview</h3>
+                <p className="text-gray-500 text-sm mt-1">Real-time stats and marketing insights.</p>
+              </div>
+              <button 
+                onClick={fetchStats} 
+                disabled={statsLoading}
+                className="btn-primary px-5 py-2.5 flex items-center gap-2 text-sm disabled:opacity-60"
+              >
+                <RefreshCw className={`w-4 h-4 ${statsLoading ? 'animate-spin' : ''}`} /> 
+                {statsLoading ? "Updating..." : "Refresh Stats"}
+              </button>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {/* Card 1: Total Enquiries */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover-lift transition-all duration-300 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Quick Enquiries</p>
+                  <p className="text-3xl font-black text-gray-900 tracking-tight">{stats?.counts?.enquiries ?? 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Card 2: Active Batches */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover-lift transition-all duration-300 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Active Batches</p>
+                  <p className="text-3xl font-black text-gray-900 tracking-tight">{stats?.counts?.courses ?? 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-500">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Card 3: Blogs & Pop-ups */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover-lift transition-all duration-300 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Blogs & Popups</p>
+                  <p className="text-3xl font-black text-gray-900 tracking-tight">
+                    {(stats?.counts?.blogs ?? 0) + (stats?.counts?.popups ?? 0)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-500">
+                  <Layers className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+
+            {/* Visual Analytics */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* SVG Trend Chart */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                  <h4 className="text-lg font-bold text-gray-900">Enquiry Trends (Last 14 Days)</h4>
+                  <div className="flex gap-4 text-xs font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 bg-primary rounded-full" /> 
+                      Quick Enquiries
+                    </span>
+                  </div>
+                </div>
+
+                <div className="relative h-64 w-full">
+                  {stats?.trend && stats.trend.length > 0 ? (
+                    (() => {
+                      const trend = stats.trend;
+                      const maxVal = Math.max(...trend.map((t: any) => t.enquiries), 5);
+                      const width = 600;
+                      const height = 220;
+                      const paddingX = 40;
+                      const paddingY = 20;
+
+                      const getX = (idx: number) => paddingX + (idx * (width - paddingX * 2)) / Math.max(trend.length - 1, 1);
+                      const getY = (val: number) => height - paddingY - (val * (height - paddingY * 2)) / maxVal;
+
+                      const ePoints = trend.map((t: any, i: number) => ({ x: getX(i), y: getY(t.enquiries) }));
+
+                      const eLine = ePoints.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(" ");
+
+                      const eArea = `${eLine} L ${ePoints[ePoints.length-1].x} ${height - paddingY} L ${ePoints[0].x} ${height - paddingY} Z`;
+
+                      return (
+                        <svg className="w-full h-full" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="gradient-enquiries" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* Grid Lines */}
+                          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                            const y = paddingY + ratio * (height - paddingY * 2);
+                            const valLabel = Math.round(maxVal * (1 - ratio));
+                            return (
+                              <g key={ratio} className="opacity-40">
+                                <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="4" />
+                                <text x={paddingX - 8} y={y + 4} fill="#9ca3af" fontSize="9" fontWeight="bold" textAnchor="end">{valLabel}</text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Render Areas */}
+                          {ePoints.length > 0 && <path d={eArea} fill="url(#gradient-enquiries)" />}
+
+                          {/* Render Lines */}
+                          {ePoints.length > 0 && <path d={eLine} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+
+                          {/* Data points */}
+                          {ePoints.map((p: any, idx: number) => (
+                            <circle key={`e-${idx}`} cx={p.x} cy={p.y} r="3.5" fill="#ffffff" stroke="#4f46e5" strokeWidth="2" className="hover:r-5 transition-all cursor-pointer" />
+                          ))}
+
+                          {/* X Axis Labels */}
+                          {trend.map((t: any, i: number) => {
+                            // Only show every 2nd or 3rd label to avoid clutter
+                            if (i % 2 !== 0 && i !== trend.length - 1) return null;
+                            const x = getX(i);
+                            return (
+                              <text key={`label-${i}`} x={x} y={height - 4} fill="#9ca3af" fontSize="9" fontWeight="semibold" textAnchor="middle">{t.date}</text>
+                            );
+                          })}
+                        </svg>
+                      );
+                    })()
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                      No trend data available.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Distribution Card */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Course Interest Distribution</h4>
+                
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[200px] lg:max-h-none">
+                  {!stats?.distribution || stats.distribution.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-gray-400 text-sm py-12">
+                      No enquiries registered yet.
+                    </div>
+                  ) : (
+                    (() => {
+                      const dist = stats.distribution;
+                      const totalCount = dist.reduce((acc: number, item: any) => acc + item.count, 0);
+
+                      return dist.map((item: any, idx: number) => {
+                        const percent = totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0;
+                        const colors = [
+                          "bg-primary",
+                          "bg-green-500",
+                          "bg-yellow-500",
+                          "bg-purple-500",
+                          "bg-red-500"
+                        ];
+                        const barColor = colors[idx % colors.length];
+
+                        return (
+                          <div key={item.label} className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold text-gray-700 truncate max-w-[170px]" title={item.label}>
+                                {item.label}
+                              </span>
+                              <span className="text-gray-400 font-extrabold shrink-0">
+                                {item.count} ({percent}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden border border-gray-100">
+                              <div 
+                                className={`h-full ${barColor} rounded-full transition-all duration-500`}
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Shortcuts */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <h4 className="text-lg font-bold text-gray-900 mb-4">Quick Management Shortcuts</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <button 
+                  onClick={() => setActiveTab("courses")} 
+                  className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Batches & Courses</p>
+                  <p className="text-xs text-gray-400 mt-1">Configure syllabus and pricing structure.</p>
+                </button>
+                <button 
+                  onClick={() => setActiveTab("blogs")} 
+                  className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Publish Blogs</p>
+                  <p className="text-xs text-gray-400 mt-1">Manage articles and news reports.</p>
+                </button>
+                <button 
+                  onClick={() => setActiveTab("faqs")} 
+                  className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Manage FAQs</p>
+                  <p className="text-xs text-gray-400 mt-1">Update general help questions.</p>
+                </button>
+                <button 
+                  onClick={() => setActiveTab("popups")} 
+                  className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Banner Pop-ups</p>
+                  <p className="text-xs text-gray-400 mt-1">Adjust overlay promotions and alerts.</p>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ENQUIRIES */}
         {activeTab === "enquiries" && (
@@ -534,33 +1139,80 @@ export default function AdminPage() {
               <button onClick={fetchEnquiries} className="btn-primary px-4 py-2 flex items-center gap-2 text-sm"><RefreshCw className="w-4 h-4" /> Refresh</button>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead><tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b"><th className="p-4">Date</th><th className="p-4">Name</th><th className="p-4">Phone</th><th className="p-4">Batch</th><th className="p-4">Message</th><th className="p-4 text-right">Actions</th></tr></thead>
-                <tbody>
-                  {enquiries.length === 0 ? (<tr><td colSpan={6} className="text-center p-6 text-gray-500">No enquiries found</td></tr>) : enquiries.map((enq) => (
-                    <tr key={enq.id} className="border-b hover:bg-gray-50 transition-colors">
-                      <td className="p-4 text-sm text-gray-600">{new Date(enq.created_at).toLocaleDateString()}</td>
-                      <td className="p-4 font-bold text-gray-900">{enq.full_name}</td>
-                      <td className="p-4 text-primary font-medium">{enq.phone_number}</td>
-                      <td className="p-4 inline-block bg-gray-100 px-3 py-1 rounded-full text-xs font-semibold">{enq.batch}</td>
-                      <td className="p-4 text-sm text-gray-600">{enq.message || "-"}</td>
-                      <td className="p-4 text-right">
-                        <button onClick={() => handleDeleteEnquiry(enq.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "enquiry" && confirmDelete.id === enq.id ? "bg-red-600 text-white hover:bg-red-700 px-3 py-2" : "text-red-500 bg-red-50 hover:text-red-700"}`}>
-                          {confirmDelete?.type === "enquiry" && confirmDelete.id === enq.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead><tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b"><th className="p-4">Date</th><th className="p-4">Name</th><th className="p-4">Phone</th><th className="p-4">Batch</th><th className="p-4">Message</th><th className="p-4 text-right">Actions</th></tr></thead>
+                  <tbody>
+                    {enquiries.length === 0 ? (<tr><td colSpan={6} className="text-center p-6 text-gray-500">No enquiries found</td></tr>) : enquiries.map((enq) => (
+                      <tr key={enq.id} className="border-b hover:bg-gray-50 transition-colors">
+                        <td className="p-4 text-sm text-gray-600">{new Date(enq.created_at).toLocaleDateString()}</td>
+                        <td className="p-4 font-bold text-gray-900">{enq.full_name}</td>
+                        <td className="p-4 text-primary font-medium">{enq.phone_number}</td>
+                        <td className="p-4"><span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-semibold">{enq.batch}</span></td>
+                        <td className="p-4 text-sm text-gray-600">{enq.message || "-"}</td>
+                        <td className="p-4 text-right">
+                          <button onClick={() => handleDeleteEnquiry(enq.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "enquiry" && confirmDelete.id === enq.id ? "bg-red-600 text-white hover:bg-red-700 px-3 py-2" : "text-red-500 bg-red-50 hover:text-red-700"}`}>
+                            {confirmDelete?.type === "enquiry" && confirmDelete.id === enq.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile Cards */}
+              <div className="md:hidden divide-y divide-gray-100">
+                {enquiries.length === 0 ? (
+                  <p className="text-center p-6 text-gray-500">No enquiries found</p>
+                ) : enquiries.map((enq) => (
+                  <div key={enq.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-900 text-sm">{enq.full_name}</p>
+                        <p className="text-primary font-medium text-sm">{enq.phone_number}</p>
+                      </div>
+                      <button onClick={() => handleDeleteEnquiry(enq.id)} className={`shrink-0 p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "enquiry" && confirmDelete.id === enq.id ? "bg-red-600 text-white hover:bg-red-700 px-3 py-2" : "text-red-500 bg-red-50 hover:text-red-700"}`}>
+                        {confirmDelete?.type === "enquiry" && confirmDelete.id === enq.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs font-semibold text-gray-700">{enq.batch}</span>
+                      <span className="text-xs text-gray-400">{new Date(enq.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {enq.message && <p className="text-xs text-gray-500 leading-relaxed">{enq.message}</p>}
+                  </div>
+                ))}
+              </div>
             </div>
+            {enquiryMeta && enquiryMeta.totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-6">
+                <button
+                  disabled={!enquiryMeta.hasPrev}
+                  onClick={() => setEnquiryPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Previous
+                </button>
+                <span className="text-xs font-semibold text-gray-500">
+                  Page {enquiryMeta.page} of {enquiryMeta.totalPages}
+                </span>
+                <button
+                  disabled={!enquiryMeta.hasNext}
+                  onClick={() => setEnquiryPage((p) => Math.min(enquiryMeta.totalPages, p + 1))}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* COURSES */}
         {activeTab === "courses" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
+          <div className="space-y-10">
+            <div id="add-batch-section" className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <Book className="w-8 h-8 text-secondary" />
@@ -577,8 +1229,72 @@ export default function AdminPage() {
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Timing</label><input required type="text" placeholder="e.g. Morning & Evening" value={courseForm.timing} onChange={(e) => setCourseForm({ ...courseForm, timing: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Fees (₹)</label><input type="number" min="0" step="1" placeholder="e.g. 36000" value={courseForm.fees} onChange={(e) => setCourseForm({ ...courseForm, fees: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Discount (%)</label><input type="number" min="0" max="100" step="0.01" placeholder="e.g. 15" value={courseForm.discount_percent} onChange={(e) => setCourseForm({ ...courseForm, discount_percent: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Default Fees (₹)</label><input type="number" min="0" step="1" placeholder="e.g. 36000" value={courseForm.fees} onChange={(e) => setCourseForm({ ...courseForm, fees: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Default Discount (%)</label><input type="number" min="0" max="100" step="0.01" placeholder="e.g. 15" value={courseForm.discount_percent} onChange={(e) => setCourseForm({ ...courseForm, discount_percent: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                </div>
+
+                <div className="border border-gray-200 rounded-2xl p-6 bg-gray-50/50 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-900">Dynamic Fee Plans</span>
+                    <button
+                      type="button"
+                      onClick={addFeePlanRow}
+                      className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-all"
+                    >
+                      + Add Plan
+                    </button>
+                  </div>
+                  {(!courseForm.fee_plans || courseForm.fee_plans.length === 0) ? (
+                    <p className="text-xs text-gray-500 italic">No dynamic fee plans added yet. Click &quot;+ Add Plan&quot; to set multiple pricing tiers.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {courseForm.fee_plans.map((plan, idx) => (
+                        <div key={idx} className="flex gap-2 items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-fadeIn">
+                          <div className="flex-1">
+                            <input
+                              required
+                              type="text"
+                              placeholder="Duration (e.g. 1 Year)"
+                              value={plan.duration}
+                              onChange={(e) => changeFeePlanRow(idx, "duration", e.target.value)}
+                              className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all"
+                            />
+                          </div>
+                          <div className="w-28">
+                            <input
+                              required
+                              type="number"
+                              min="0"
+                              placeholder="Fees (₹)"
+                              value={plan.fees}
+                              onChange={(e) => changeFeePlanRow(idx, "fees", e.target.value)}
+                              className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all"
+                            />
+                          </div>
+                          <div className="w-24">
+                            <input
+                              required
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              placeholder="Discount %"
+                              value={plan.discount_percent}
+                              onChange={(e) => changeFeePlanRow(idx, "discount_percent", e.target.value)}
+                              className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFeePlanRow(idx)}
+                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Benefits of Joining</label><textarea required rows={4} placeholder="One benefit per line" value={courseForm.benefits} onChange={(e) => setCourseForm({ ...courseForm, benefits: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Course Syllabus</label><textarea required rows={4} placeholder="One syllabus topic per line" value={courseForm.syllabus} onChange={(e) => setCourseForm({ ...courseForm, syllabus: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
@@ -589,64 +1305,147 @@ export default function AdminPage() {
                 <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">{editingCourse ? "Update Batch" : "Add Batch"}</button>
               </form>
             </div>
-            <div>
+            <div id="existing-batches-section">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Existing Batches</h3>
-              <div className="space-y-4">
-                {courses.length === 0 ? <p className="text-gray-500">No batches added yet.</p> : courses.map((course) => (
-                  <div key={course.id} className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-start group hover:border-primary/30 transition-all">
-                    <div className="flex items-center gap-4">
-                      {course.image_url && <img src={course.image_url} alt="" className="w-12 h-12 rounded object-cover" />}
-                      <div>
-                        <h4 className="font-bold text-gray-900">{course.title}</h4>
-                        <p className="text-xs text-gray-500 mt-1">Duration: {course.duration || "-"} • Timing: {course.timing || "-"}</p>
-                        <p className="text-xs text-gray-500">Next Batch: {course.next_batch_starts || "-"}</p>
-                        {(() => {
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b">
+                        <th className="p-4">Batch</th>
+                        <th className="p-4">Schedule</th>
+                        <th className="p-4">Default Price</th>
+                        <th className="p-4">Fee Plans</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courses.length === 0 ? (
+                        <tr><td colSpan={5} className="text-center p-6 text-gray-500">No batches added yet.</td></tr>
+                      ) : (
+                        courses.map((course) => {
                           const pricing = getCoursePricing(course);
-                          if (!pricing) return null;
                           return (
-                            <p className="text-xs text-gray-600 mt-1">
-                              Fees: ₹{formatIndianCurrency(pricing.finalPrice)}
-                              {pricing.discount > 0 && (
-                                <>
-                                  <span className="mx-1 text-gray-400 line-through">₹{formatIndianCurrency(pricing.fees)}</span>
-                                  <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">-{pricing.discount}%</span>
-                                </>
-                              )}
-                            </p>
-                          );
-                        })()}
-                        <p className="text-sm text-gray-500 line-clamp-2 mt-1 max-w-sm">{course.description || course.benefits || "-"}</p>
-                        {parseBatchList(course.syllabus).length > 0 && (
-                          <div className="mt-3 rounded-xl border border-gray-200 overflow-hidden max-w-sm">
-                            <button
-                              type="button"
-                              onClick={() => setOpenBatchSyllabusKey(openBatchSyllabusKey === `batch-${course.id}` ? null : `batch-${course.id}`)}
-                              className="w-full px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-700 flex items-center justify-between"
-                            >
-                              <span>Syllabus Details</span>
-                              <ChevronDown className={`w-4 h-4 transition-transform ${openBatchSyllabusKey === `batch-${course.id}` ? "rotate-180" : ""}`} />
-                            </button>
-                            {openBatchSyllabusKey === `batch-${course.id}` && (
-                              <div className="p-3 bg-white space-y-2">
-                                {parseBatchList(course.syllabus).map((item, idx) => (
-                                  <div key={`${course.id}-syll-${idx}`} className="text-xs text-gray-600">
-                                    • {item}
+                            <tr key={course.id} className="border-b hover:bg-gray-50 transition-colors">
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  {course.image_url ? (
+                                    <img src={course.image_url} alt="" className="w-10 h-10 rounded object-cover" />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-400"><Book className="w-5 h-5" /></div>
+                                  )}
+                                  <div>
+                                    <p className="font-bold text-gray-900">{course.title}</p>
+                                    <p className="text-xs text-gray-500 mt-1 max-w-[250px] line-clamp-2">{course.description || course.benefits || "-"}</p>
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                </div>
+                              </td>
+                              <td className="p-4 text-sm text-gray-600">
+                                <p><span className="font-semibold text-gray-900">Duration:</span> {course.duration || "-"}</p>
+                                <p className="text-xs mt-0.5"><span className="font-semibold text-gray-900">Timing:</span> {course.timing || "-"}</p>
+                                <p className="text-xs mt-0.5"><span className="font-semibold text-gray-900">Starts:</span> {course.next_batch_starts || "-"}</p>
+                              </td>
+                              <td className="p-4 text-sm text-gray-600">
+                                {pricing ? (
+                                  <div>
+                                    <p className="font-semibold text-gray-900">₹{formatIndianCurrency(pricing.finalPrice)}</p>
+                                    {pricing.discount > 0 && (
+                                      <p className="text-xs text-gray-400">
+                                        <span className="line-through">₹{formatIndianCurrency(pricing.fees)}</span>
+                                        <span className="ml-1 text-green-700 bg-green-50 px-1.5 py-0.5 rounded text-[10px] font-semibold">-{pricing.discount}%</span>
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : <span className="text-gray-400">-</span>}
+                              </td>
+                              <td className="p-4 text-sm text-gray-600">
+                                {course.fee_plans && course.fee_plans.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {course.fee_plans.map((plan: any) => {
+                                      const planFees = Number(plan.fees);
+                                      const planDiscount = Number(plan.discount_percent);
+                                      const planFinal = planFees - (planFees * planDiscount) / 100;
+                                      return (
+                                        <div key={plan.id} className="text-xs flex items-center gap-1.5 flex-wrap">
+                                          <span className="bg-primary/5 text-primary px-1.5 py-0.5 rounded text-[10px] font-semibold">{plan.duration}</span>
+                                          <span className="font-bold text-gray-800">₹{formatIndianCurrency(planFinal)}</span>
+                                          {planDiscount > 0 && <span className="text-[10px] text-green-600">(-{planDiscount}%)</span>}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : <span className="text-xs text-gray-400 italic">No custom plans</span>}
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button onClick={() => handleEditCourse(course)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit batch"><Edit className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteCourse(course.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "course" && confirmDelete.id === course.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                    {confirmDelete?.type === "course" && confirmDelete.id === course.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Mobile Cards */}
+                <div className="md:hidden divide-y divide-gray-100">
+                  {courses.length === 0 ? (
+                    <p className="text-center p-6 text-gray-500">No batches added yet.</p>
+                  ) : courses.map((course) => {
+                    const pricing = getCoursePricing(course);
+                    return (
+                      <div key={course.id} className="p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          {course.image_url ? (
+                            <img src={course.image_url} alt="" className="w-12 h-12 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center text-gray-400 shrink-0"><Book className="w-5 h-5" /></div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-sm">{course.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{course.description || course.benefits || "-"}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => handleEditCourse(course)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit batch"><Edit className="w-4 h-4" /></button>
+                            <button onClick={() => handleDeleteCourse(course.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "course" && confirmDelete.id === course.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                              {confirmDelete?.type === "course" && confirmDelete.id === course.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                          <div><span className="font-semibold text-gray-900">Duration:</span> {course.duration || "-"}</div>
+                          <div><span className="font-semibold text-gray-900">Timing:</span> {course.timing || "-"}</div>
+                          <div><span className="font-semibold text-gray-900">Starts:</span> {course.next_batch_starts || "-"}</div>
+                          {pricing && (
+                            <div>
+                              <span className="font-semibold text-gray-900">Price:</span> ₹{formatIndianCurrency(pricing.finalPrice)}
+                              {pricing.discount > 0 && <span className="ml-1 text-green-700 bg-green-50 px-1 py-0.5 rounded text-[10px] font-semibold">-{pricing.discount}%</span>}
+                            </div>
+                          )}
+                        </div>
+                        {course.fee_plans && course.fee_plans.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {course.fee_plans.map((plan: any) => {
+                              const planFees = Number(plan.fees);
+                              const planDiscount = Number(plan.discount_percent);
+                              const planFinal = planFees - (planFees * planDiscount) / 100;
+                              return (
+                                <span key={plan.id} className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded font-semibold">
+                                  {plan.duration}: ₹{formatIndianCurrency(planFinal)}{planDiscount > 0 && ` (-${planDiscount}%)`}
+                                </span>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 transition-all">
-                      <button onClick={() => handleEditCourse(course)} className="text-blue-500 bg-blue-50 p-3 rounded-lg hover:bg-blue-100"><Edit className="w-5 h-5" /></button>
-                      <button onClick={() => handleDeleteCourse(course.id)} className={`p-3 rounded-lg transition-colors ${confirmDelete?.type === "course" && confirmDelete.id === course.id ? "bg-red-600 text-white hover:bg-red-700 text-xs font-bold px-4 py-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
-                        {confirmDelete?.type === "course" && confirmDelete.id === course.id ? "Confirm?" : <Trash2 className="w-5 h-5" />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -654,8 +1453,8 @@ export default function AdminPage() {
 
         {/* BLOGS */}
         {activeTab === "blogs" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
+          <div className="space-y-10">
+            <div id="add-blog-section" className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <FileText className="w-8 h-8 text-secondary" />
@@ -771,7 +1570,7 @@ export default function AdminPage() {
               </form>
             </div>
             {!isEditorFullScreen && (
-              <div>
+              <div id="existing-blogs-section">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <h3 className="text-2xl font-bold text-gray-900">Published Blogs</h3>
                   <button onClick={fetchBlogs} className="btn-primary px-4 py-2 flex items-center gap-2 text-sm"><RefreshCw className="w-4 h-4" /> Refresh</button>
@@ -786,99 +1585,137 @@ export default function AdminPage() {
                     className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 focus:ring-2 focus:ring-primary outline-none"
                   />
                 </div>
-                <div className="space-y-4">
-                  {visibleBlogs.length === 0 ? <p className="text-gray-500">No blogs found.</p> : visibleBlogs.map((blog) => (
-                    <div key={blog.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-primary/30 transition-all">
-                      <div>
-                        <h4 className="font-bold text-gray-900">{blog.title}</h4>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                          <p className="text-xs text-gray-500">By {blog.author}</p>
-                          <span className="text-gray-300 text-xs">•</span>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  {/* Desktop Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b">
+                          <th className="p-4">Blog</th>
+                          <th className="p-4">Status</th>
+                          <th className="p-4">Published At</th>
+                          <th className="p-4">Tags</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blogs.length === 0 ? (
+                          <tr><td colSpan={5} className="text-center p-6 text-gray-500">No blogs found.</td></tr>
+                        ) : (
+                          blogs.map((blog) => (
+                            <tr key={blog.id} className="border-b hover:bg-gray-50 transition-colors">
+                              <td className="p-4">
+                                <p className="font-bold text-gray-900">{blog.title}</p>
+                                <p className="text-xs text-gray-500">By {blog.author}</p>
+                              </td>
+                              <td className="p-4 text-sm">
+                                {new Date(blog.published_at) > new Date() ? (
+                                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Scheduled</span>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Live</span>
+                                )}
+                              </td>
+                              <td className="p-4 text-sm text-gray-600">{new Date(blog.published_at).toLocaleString()}</td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {Array.isArray(blog.tags) && blog.tags.map((tag: string) => (
+                                    <span key={`${blog.id}-${tag}`} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{tag}</span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <a href={`/blogs/${blog.id}`} target="_blank" rel="noreferrer" className="text-emerald-600 bg-emerald-50 p-2 rounded-lg hover:bg-emerald-100 transition-colors" aria-label="View blog"><ExternalLink className="w-4 h-4" /></a>
+                                  <button onClick={() => handleEditBlog(blog)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit blog"><Edit className="w-4 h-4" /></button>
+                                  <button disabled={blogActionLoadingId === blog.id} onClick={() => handleDeleteBlog(blog.id)} className={`p-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-xs font-bold ${confirmDelete?.type === "blog" && confirmDelete.id === blog.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                    {confirmDelete?.type === "blog" && confirmDelete.id === blog.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Mobile Cards */}
+                  <div className="md:hidden divide-y divide-gray-100">
+                    {blogs.length === 0 ? (
+                      <p className="text-center p-6 text-gray-500">No blogs found.</p>
+                    ) : blogs.map((blog) => (
+                      <div key={blog.id} className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-sm leading-snug">{blog.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">By {blog.author}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <a href={`/blogs/${blog.id}`} target="_blank" rel="noreferrer" className="text-emerald-600 bg-emerald-50 p-2 rounded-lg hover:bg-emerald-100 transition-colors" aria-label="View blog"><ExternalLink className="w-4 h-4" /></a>
+                            <button onClick={() => handleEditBlog(blog)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit blog"><Edit className="w-4 h-4" /></button>
+                            <button disabled={blogActionLoadingId === blog.id} onClick={() => handleDeleteBlog(blog.id)} className={`p-2 rounded-lg disabled:opacity-60 transition-colors text-xs font-bold ${confirmDelete?.type === "blog" && confirmDelete.id === blog.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                              {confirmDelete?.type === "blog" && confirmDelete.id === blog.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
                           {new Date(blog.published_at) > new Date() ? (
-                            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                              Scheduled: {new Date(blog.published_at).toLocaleString()}
-                            </span>
+                            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Scheduled</span>
                           ) : (
-                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                              Live
-                            </span>
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Live</span>
                           )}
+                          <span className="text-xs text-gray-400">{new Date(blog.published_at).toLocaleDateString()}</span>
                         </div>
                         {Array.isArray(blog.tags) && blog.tags.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-1">
                             {blog.tags.map((tag: string) => (
-                              <span key={`${blog.id}-${tag}`} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                                {tag}
-                              </span>
+                              <span key={`${blog.id}-${tag}`} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{tag}</span>
                             ))}
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 transition-opacity">
-                        <a href={`/blogs/${blog.id}`} target="_blank" rel="noreferrer" className="text-emerald-600 bg-emerald-50 p-3 rounded-lg hover:bg-emerald-100" aria-label="View blog">
-                          <ExternalLink className="w-5 h-5" />
-                        </a>
-                        <button onClick={() => handleEditBlog(blog)} className="text-blue-500 bg-blue-50 p-3 rounded-lg hover:bg-blue-100">
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button disabled={blogActionLoadingId === blog.id} onClick={() => handleDeleteBlog(blog.id)} className={`p-3 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${confirmDelete?.type === "blog" && confirmDelete.id === blog.id ? "bg-red-600 text-white hover:bg-red-700 text-xs font-bold px-4 py-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
-                          {confirmDelete?.type === "blog" && confirmDelete.id === blog.id ? "Confirm?" : <Trash2 className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+                {blogMeta && blogMeta.totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-6">
+                    <button
+                      disabled={!blogMeta.hasPrev}
+                      onClick={() => setBlogPage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs font-semibold text-gray-500">
+                      Page {blogMeta.page} of {blogMeta.totalPages}
+                    </span>
+                    <button
+                      disabled={!blogMeta.hasNext}
+                      onClick={() => setBlogPage((p) => Math.min(blogMeta.totalPages, p + 1))}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* VIDEOS */}
-        {activeTab === "videos" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
-              <div className="flex items-center gap-3 mb-6">
-                <PlayCircle className="w-8 h-8 text-secondary" />
-                <h3 className="text-2xl font-bold text-gray-900">Add YouTube Demo Video</h3>
-              </div>
-              <form onSubmit={handleVideoAdd} className="space-y-5">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Video Title</label>
-                  <input required type="text" value={videoForm.title} onChange={e => setVideoForm({...videoForm, title: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">YouTube URL</label>
-                  <input required type="url" placeholder="https://www.youtube.com/watch?v=..." value={videoForm.youtube_url} onChange={e => setVideoForm({...videoForm, youtube_url: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
-                </div>
-                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">Add Video</button>
-              </form>
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Existing Demo Videos</h3>
-              <div className="space-y-4">
-                {videos.length === 0 ? <p className="text-gray-500">No demo videos added yet.</p> : videos.map(video => (
-                  <div key={video.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-primary/30 transition-all">
-                    <div>
-                      <h4 className="font-bold text-gray-900">{video.title}</h4>
-                      <a href={video.youtube_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">{video.youtube_url}</a>
-                    </div>
-                     <button onClick={() => handleDeleteVideo(video.id)} className={`p-3 rounded-lg transition-colors ${confirmDelete?.type === "video" && confirmDelete.id === video.id ? "bg-red-600 text-white hover:bg-red-700 text-xs font-bold px-4 py-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
-                      {confirmDelete?.type === "video" && confirmDelete.id === video.id ? "Confirm?" : <Trash2 className="w-5 h-5" />}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* FAQS */}
         {activeTab === "faqs" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
-              <div className="flex items-center gap-3 mb-6">
-                <FileText className="w-8 h-8 text-secondary" />
-                <h3 className="text-2xl font-bold text-gray-900">Add New FAQ</h3>
+          <div className="space-y-10">
+            <div id="add-faq-section" className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-8 h-8 text-secondary" />
+                  <h3 className="text-2xl font-bold text-gray-900">{editingFaq ? "Edit FAQ" : "Add New FAQ"}</h3>
+                </div>
+                {editingFaq && (
+                  <button onClick={cancelFaqEdit} className="text-sm font-semibold text-gray-600 hover:text-gray-900">Cancel</button>
+                )}
               </div>
               <form onSubmit={handleFaqAdd} className="space-y-5">
                 <div>
@@ -901,29 +1738,256 @@ export default function AdminPage() {
                   <label className="block text-sm font-bold text-gray-700 mb-1">Answer</label>
                   <textarea required rows={4} value={faqForm.answer} onChange={e => setFaqForm({...faqForm, answer: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all"></textarea>
                 </div>
-                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">Add FAQ</button>
+                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">{editingFaq ? "Update FAQ" : "Add FAQ"}</button>
               </form>
             </div>
-            <div>
+            <div id="existing-faqs-section">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Live Dynamic FAQs</h3>
-              <div className="space-y-4">
-                {faqs.length === 0 ? <p className="text-gray-500">No dynamic FAQs created yet.</p> : faqs.map(faq => (
-                  <div key={faq.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-primary/30 transition-all">
-                    <div>
-                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-sm mb-2 inline-block">{faq.category}</span>
-                      <h4 className="font-bold text-gray-900">{faq.question}</h4>
-                      <p className="text-sm text-gray-500 line-clamp-2 mt-1">{faq.answer}</p>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b">
+                        <th className="p-4">Category</th>
+                        <th className="p-4">Question &amp; Answer</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {faqs.length === 0 ? (
+                        <tr><td colSpan={3} className="text-center p-6 text-gray-500">No dynamic FAQs created yet.</td></tr>
+                      ) : (
+                        faqs.map((faq) => (
+                          <tr key={faq.id} className="border-b hover:bg-gray-50 transition-colors">
+                            <td className="p-4">
+                              <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/10">{faq.category}</span>
+                            </td>
+                            <td className="p-4">
+                              <p className="font-bold text-gray-900">{faq.question}</p>
+                              <p className="text-sm text-gray-500 mt-1 max-w-xl">{faq.answer}</p>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleEditFaq(faq)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit FAQ"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteFaq(faq.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "faq" && confirmDelete.id === faq.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                  {confirmDelete?.type === "faq" && confirmDelete.id === faq.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Mobile Cards */}
+                <div className="md:hidden divide-y divide-gray-100">
+                  {faqs.length === 0 ? (
+                    <p className="text-center p-6 text-gray-500">No dynamic FAQs created yet.</p>
+                  ) : faqs.map((faq) => (
+                    <div key={faq.id} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/10 shrink-0">{faq.category}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => handleEditFaq(faq)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit FAQ"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteFaq(faq.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "faq" && confirmDelete.id === faq.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                            {confirmDelete?.type === "faq" && confirmDelete.id === faq.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="font-bold text-gray-900 text-sm">{faq.question}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{faq.answer}</p>
                     </div>
-                     <button onClick={() => handleDeleteFaq(faq.id)} className={`p-3 rounded-lg transition-colors shrink-0 ml-4 ${confirmDelete?.type === "faq" && confirmDelete.id === faq.id ? "bg-red-600 text-white hover:bg-red-700 text-xs font-bold px-4 py-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
-                      {confirmDelete?.type === "faq" && confirmDelete.id === faq.id ? "Confirm?" : <Trash2 className="w-5 h-5" />}
-                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* POPUPS */}
+        {activeTab === "popups" && (
+          <div className="space-y-10">
+            <div id="add-popup-section" className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Layers className="w-8 h-8 text-secondary" />
+                  <h3 className="text-2xl font-bold text-gray-900">{editingPopup ? "Edit Pop-up" : "Add New Pop-up"}</h3>
+                </div>
+                {editingPopup && (
+                  <button onClick={cancelPopupEdit} className="text-sm font-semibold text-gray-600 hover:text-gray-900">Cancel</button>
+                )}
+              </div>
+              <form onSubmit={handlePopupAdd} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Pop-up Title</label>
+                  <input required type="text" value={popupForm.title} onChange={e => setPopupForm({...popupForm, title: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Short Description (Optional)</label>
+                  <textarea rows={3} value={popupForm.description} onChange={e => setPopupForm({...popupForm, description: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Priority Ranking (Lower = Higher Priority)</label>
+                    <input required type="number" min="0" step="1" value={popupForm.ranking} onChange={e => setPopupForm({...popupForm, ranking: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
                   </div>
-                ))}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Duration (Seconds, 3 to 60)</label>
+                    <input required type="number" min="3" max="60" step="1" value={popupForm.duration} onChange={e => setPopupForm({...popupForm, duration: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Display Locations</label>
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      { key: "landing", label: "Landing Page" },
+                      { key: "about", label: "About Page" },
+                      { key: "contact", label: "Contact Page" },
+                      { key: "blogs", label: "Blogs Page" },
+                    ].map((loc) => {
+                      const isChecked = popupForm.locations.includes(loc.key);
+                      return (
+                        <label key={loc.key} className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-xl border hover:bg-gray-50 select-none">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setPopupForm(prev => {
+                                const exists = prev.locations.includes(loc.key);
+                                return {
+                                  ...prev,
+                                  locations: exists 
+                                    ? prev.locations.filter(l => l !== loc.key)
+                                    : [...prev.locations, loc.key]
+                                };
+                              });
+                            }}
+                            className="rounded text-primary focus:ring-primary w-4 h-4"
+                          />
+                          <span className="text-sm font-semibold text-gray-700">{loc.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Pop-up Image (Optional)</label>
+                  <input type="file" accept="image/*" onChange={(e) => setPopupForm({ ...popupForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" />
+                  {editingPopup && editingPopup.image_url && (
+                    <div className="mt-3 flex items-center gap-3">
+                      <img src={editingPopup.image_url} alt="" className="w-20 h-20 rounded object-cover border" />
+                      <p className="text-xs text-gray-500">Current image. Upload a new one to replace it.</p>
+                    </div>
+                  )}
+                </div>
+
+                <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">{editingPopup ? "Update Pop-up" : "Add Pop-up"}</button>
+              </form>
+            </div>
+            <div id="existing-popups-section">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Existing Pop-ups</h3>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b">
+                        <th className="p-4">Pop-up Info</th>
+                        <th className="p-4">Locations</th>
+                        <th className="p-4">Priority &amp; Duration</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {popups.length === 0 ? (
+                        <tr><td colSpan={4} className="text-center p-6 text-gray-500">No pop-ups created yet.</td></tr>
+                      ) : (
+                        popups.map((popup) => (
+                          <tr key={popup.id} className="border-b hover:bg-gray-50 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                {popup.image_url ? (
+                                  <img src={popup.image_url} alt="" className="w-12 h-12 rounded object-cover border" />
+                                ) : (
+                                  <div className="w-12 h-12 rounded bg-gray-100 border flex items-center justify-center text-gray-400"><Layers className="w-5 h-5" /></div>
+                                )}
+                                <div>
+                                  <p className="font-bold text-gray-900">{popup.title}</p>
+                                  <p className="text-xs text-gray-500 max-w-[250px] line-clamp-1">{popup.description || "-"}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1">
+                                {popup.locations && popup.locations.map((loc: string) => (
+                                  <span key={loc} className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/10 capitalize">{loc}</span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4 text-sm text-gray-600">
+                              <p><span className="font-semibold text-gray-900">Rank:</span> {popup.ranking}</p>
+                              <p className="text-xs mt-0.5"><span className="font-semibold text-gray-900">Close after:</span> {popup.duration}s</p>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleEditPopup(popup)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit Pop-up"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeletePopup(popup.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "popup" && confirmDelete.id === popup.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                  {confirmDelete?.type === "popup" && confirmDelete.id === popup.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Mobile Cards */}
+                <div className="md:hidden divide-y divide-gray-100">
+                  {popups.length === 0 ? (
+                    <p className="text-center p-6 text-gray-500">No pop-ups created yet.</p>
+                  ) : popups.map((popup) => (
+                    <div key={popup.id} className="p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        {popup.image_url ? (
+                          <img src={popup.image_url} alt="" className="w-12 h-12 rounded object-cover border shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-gray-100 border flex items-center justify-center text-gray-400 shrink-0"><Layers className="w-5 h-5" /></div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 text-sm">{popup.title}</p>
+                          <p className="text-xs text-gray-500 line-clamp-1">{popup.description || "-"}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => handleEditPopup(popup)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit Pop-up"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeletePopup(popup.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "popup" && confirmDelete.id === popup.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                            {confirmDelete?.type === "popup" && confirmDelete.id === popup.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-600">
+                        <span><span className="font-semibold text-gray-900">Rank:</span> {popup.ranking}</span>
+                        <span><span className="font-semibold text-gray-900">Closes:</span> {popup.duration}s</span>
+                      </div>
+                      {popup.locations && popup.locations.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {popup.locations.map((loc: string) => (
+                            <span key={loc} className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/10 capitalize">{loc}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         )}
 
+      </div>
       </div>
     </div>
   );

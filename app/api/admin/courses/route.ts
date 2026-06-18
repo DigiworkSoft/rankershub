@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const nextBatchStarts = String(formData.get("next_batch_starts") ?? "");
     const feesRaw = String(formData.get("fees") ?? "").trim();
     const discountRaw = String(formData.get("discount_percent") ?? "").trim();
+    const feePlansRaw = String(formData.get("fee_plans") ?? "[]");
     const file = formData.get("image") as File | null;
 
     const fees = feesRaw ? Number(feesRaw) : null;
@@ -59,7 +60,26 @@ export async function POST(request: Request) {
       [title, description, image_url, duration, timing, benefits, syllabus, syllabusDetails, nextBatchStarts, fees, discountPercent]
     );
 
-    return NextResponse.json({ success: true, id: result.rows[0].id }, { status: 201 });
+    const courseId = result.rows[0].id;
+    try {
+      const feePlans = JSON.parse(feePlansRaw);
+      if (Array.isArray(feePlans)) {
+        for (const plan of feePlans) {
+          const planFees = Number(plan.fees || 0);
+          const planDiscount = Number(plan.discount_percent || 0);
+          await query(
+            `INSERT INTO fee_plans (course_id, duration, fees, discount_percent)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (course_id, duration) DO UPDATE
+             SET fees = EXCLUDED.fees, discount_percent = EXCLUDED.discount_percent`,
+            [courseId, String(plan.duration), planFees, planDiscount]
+          );
+        }
+      }
+    } catch (_parseError) {
+    }
+
+    return NextResponse.json({ success: true, id: courseId }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Failed to create course" }, { status: 500 });
   }
@@ -87,6 +107,7 @@ export async function PUT(request: Request) {
     const nextBatchStarts = String(formData.get("next_batch_starts") ?? "");
     const feesRaw = String(formData.get("fees") ?? "").trim();
     const discountRaw = String(formData.get("discount_percent") ?? "").trim();
+    const feePlansRaw = String(formData.get("fee_plans") ?? "[]");
     const file = formData.get("image") as File | null;
 
     const fees = feesRaw ? Number(feesRaw) : null;
@@ -137,6 +158,24 @@ export async function PUT(request: Request) {
        WHERE id = $12`,
       [title, description, image_url, duration, timing, benefits, syllabus, syllabusDetails, nextBatchStarts, fees, discountPercent, Number(id)]
     );
+
+    // Delete old fee plans and insert the updated list
+    try {
+      await query("DELETE FROM fee_plans WHERE course_id = $1", [Number(id)]);
+      const feePlans = JSON.parse(feePlansRaw);
+      if (Array.isArray(feePlans)) {
+        for (const plan of feePlans) {
+          const planFees = Number(plan.fees || 0);
+          const planDiscount = Number(plan.discount_percent || 0);
+          await query(
+            `INSERT INTO fee_plans (course_id, duration, fees, discount_percent)
+             VALUES ($1, $2, $3, $4)`,
+            [Number(id), String(plan.duration), planFees, planDiscount]
+          );
+        }
+      }
+    } catch (_parseError) {
+    }
 
     return NextResponse.json({ success: true });
   } catch {

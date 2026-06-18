@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AboutClient from "./AboutClient";
+import PopupDisplay from "@/app/_components/PopupDisplay";
 
 export const metadata: Metadata = {
   title: "About Us — RankersHub Commerce Coaching Pune",
@@ -8,5 +9,11 @@ export const metadata: Metadata = {
 };
 
 export default function AboutPage() {
-  return <AboutClient />;
+  return (
+    <>
+      <AboutClient />
+      <PopupDisplay location="about" />
+    </>
+  );
 }
+

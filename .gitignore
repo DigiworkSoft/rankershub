@@ -41,3 +41,6 @@ public/uploads/*
 
 # Project analysis
 PROJECT_ANALYSIS.md
+
+# YouTube Cache
+youtube-shorts-cache.json

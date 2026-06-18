@@ -43,3 +43,36 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Failed to delete FAQ" }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  const token = getTokenFromRequest(request);
+  if (!token || !verifyToken(token)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing faq id" }, { status: 400 });
+
+  try {
+    const { question, answer, category } = await request.json();
+
+    if (!question || !answer || !category) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const result = await query(
+      "UPDATE faqs SET question = $1, answer = $2, category = $3 WHERE id = $4 RETURNING *",
+      [question, answer, category, Number(id)]
+    );
+
+    if (result.rowCount === 0) {
+      return NextResponse.json({ error: "FAQ not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, faq: result.rows[0] });
+  } catch {
+    return NextResponse.json({ error: "Failed to update FAQ" }, { status: 500 });
+  }
+}
+

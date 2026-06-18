@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ContactClient from "./ContactClient";
+import PopupDisplay from "@/app/_components/PopupDisplay";
 
 export const metadata: Metadata = {
   title: "Contact Us — RankersHub Commerce Coaching Pune",
@@ -7,5 +8,11 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  return <ContactClient />;
+  return (
+    <>
+      <ContactClient />
+      <PopupDisplay location="contact" />
+    </>
+  );
 }
+

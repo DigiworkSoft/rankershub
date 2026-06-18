@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import BlogsClient from "./BlogsClient";
+import PopupDisplay from "@/app/_components/PopupDisplay";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ export default async function BlogsPage({
         are already provided by RootLayout.
       */}
       <BlogsClient initialPosts={initialPosts} initialTag={initialTag} />
+      <PopupDisplay location="blogs" />
     </section>
   );
 }
+

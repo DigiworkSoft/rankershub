@@ -48,6 +48,9 @@ export default function BlogsClient({
     }
   }, [initialTag, uniqueTags]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const POSTS_PER_PAGE = 6;
+
   const filteredPosts = useMemo(() => {
     let result = posts;
     if (activeTag) result = result.filter((post) => post.tags && post.tags.includes(activeTag));
@@ -55,6 +58,17 @@ export default function BlogsClient({
     if (q) result = result.filter((post) => [post.title, post.content, post.author].some((v) => (v || "").toLowerCase().includes(q)));
     return result;
   }, [posts, query, activeTag]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, activeTag]);
+
+  const paginatedPosts = useMemo(() => {
+    const start = (currentPage - 1) * POSTS_PER_PAGE;
+    return filteredPosts.slice(start, start + POSTS_PER_PAGE);
+  }, [filteredPosts, currentPage]);
+
+  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
 
   const estimateReadTime = (content: string) => {
     const words = (content || "").trim().split(/\s+/).filter(Boolean).length;
@@ -154,12 +168,12 @@ export default function BlogsClient({
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
-          {filteredPosts.length === 0 ? (
+          {paginatedPosts.length === 0 ? (
             <div className="col-span-full py-20 text-center">
               <p className="text-gray-500 text-lg">No blog articles found matching your criteria.</p>
             </div>
           ) : (
-            filteredPosts.map((post, i) => (
+            paginatedPosts.map((post, i) => (
               <motion.div
                 key={post.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -202,6 +216,42 @@ export default function BlogsClient({
             ))
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-12">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Previous
+            </button>
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 text-sm font-bold rounded-lg border transition-all ${
+                    currentPage === pageNum
+                      ? "bg-primary text-white border-primary shadow-md shadow-primary/10"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

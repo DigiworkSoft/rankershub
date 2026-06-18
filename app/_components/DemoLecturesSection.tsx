@@ -29,20 +29,27 @@ export default function DemoLecturesSection() {
   const isPausedRef = useRef(false);
 
   const scrollingVideos = useMemo(() => {
-    if (videos.length <= 1) return videos;
+    if (videos.length <= 3) return videos;
     return [...videos, ...videos];
   }, [videos]);
 
   useEffect(() => {
-    fetch("/api/videos")
+    fetch("/api/youtube-feed")
       .then((res) => res.json())
-      .then((data) => setVideos(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const feedVideos = Array.isArray(data.videos) ? data.videos.map((v: any) => ({
+          id: v.id,
+          title: v.title,
+          youtube_url: v.url
+        })) : [];
+        setVideos(feedVideos);
+      })
       .catch(() => setVideos([]));
   }, []);
 
   useEffect(() => {
     const strip = videosStripRef.current;
-    if (!strip || videos.length <= 1) return;
+    if (!strip || videos.length <= 3) return;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;

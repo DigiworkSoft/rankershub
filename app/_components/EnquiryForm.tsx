@@ -14,8 +14,14 @@ export default function EnquiryForm() {
     message: "",
   });
 
+  const [phoneError, setPhoneError] = useState("");
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (formData.phone_number.length !== 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+      return;
+    }
     setStatus("submitting");
     try {
       const res = await fetch("/api/enquiry", {
@@ -47,6 +53,7 @@ export default function EnquiryForm() {
           onClick={() => {
             setStatus("idle");
             setFormData({ full_name: "", phone_number: "", batch: "11th Commerce", message: "" });
+            setPhoneError("");
           }}
           className="text-primary font-bold hover:underline"
         >
@@ -78,11 +85,26 @@ export default function EnquiryForm() {
           <input
             required
             type="tel"
-            placeholder="+91 XXXXX XXXXX"
+            placeholder="10-digit mobile number"
             value={formData.phone_number}
-            onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+            onChange={(e) => {
+              const cleanVal = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setFormData({ ...formData, phone_number: cleanVal });
+              if (cleanVal.length > 0 && cleanVal.length < 10) {
+                setPhoneError("Phone number must be exactly 10 digits");
+              } else {
+                setPhoneError("");
+              }
+            }}
+            className={`w-full px-4 py-3 rounded-xl border transition-all outline-none focus:ring-2 ${
+              phoneError 
+                ? "border-red-500 focus:ring-red-200 focus:border-red-500" 
+                : "border-gray-200 focus:ring-primary focus:border-transparent"
+            }`}
           />
+          {phoneError && (
+            <p className="text-xs text-red-500 mt-1 font-medium">{phoneError}</p>
+          )}
         </div>
         <div>
           <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Interested Batch</label>

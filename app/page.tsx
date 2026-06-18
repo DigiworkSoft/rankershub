@@ -6,7 +6,9 @@ import FeedbackSection from "./_components/FeedbackSection";
 import HomeHero from "./_components/HomeHero";
 import DemoLecturesSection from "./_components/DemoLecturesSection";
 import RelatedBlogsAutoScroll from "./_components/RelatedBlogsAutoScroll";
-// import BatchesInfoSection from "./_components/BatchesInfoSection";
+import OurCoursesSection from "./_components/OurCoursesSection";
+import FeePlansSection from "./_components/FeePlansSection";
+import PopupDisplay from "./_components/PopupDisplay";
 
 export const metadata: Metadata = {
   title: "RankersHub — Best Commerce Classes in Pune",
@@ -82,7 +84,9 @@ export default function HomePage() {
 
       <FacultySection />
 
-      {/* <BatchesInfoSection /> */}
+      <OurCoursesSection />
+
+      <FeePlansSection />
 
       <RelatedBlogsAutoScroll />
 
@@ -119,6 +123,7 @@ export default function HomePage() {
       <DemoLecturesSection />
 
       <FeedbackSection />
+      <PopupDisplay location="landing" />
     </div>
   );
 }

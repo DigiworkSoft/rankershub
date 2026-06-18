@@ -26,6 +26,8 @@ export default function EnrollmentModal({
     message: "",
   });
 
+  const [phoneError, setPhoneError] = useState("");
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -41,6 +43,7 @@ export default function EnrollmentModal({
         message: "",
       });
       setStatus("idle");
+      setPhoneError("");
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -56,8 +59,22 @@ export default function EnrollmentModal({
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanVal = e.target.value.replace(/\D/g, "").slice(0, 10);
+    setFormData((prev) => ({ ...prev, phone: cleanVal }));
+    if (cleanVal.length > 0 && cleanVal.length < 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+    } else {
+      setPhoneError("");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.phone.length !== 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+      return;
+    }
     setStatus("submitting");
 
     try {
@@ -172,10 +189,17 @@ export default function EnrollmentModal({
                     name="phone"
                     required
                     value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="Enter your phone number"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                    onChange={handlePhoneChange}
+                    placeholder="10-digit mobile number"
+                    className={`w-full px-4 py-3 rounded-xl border bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all text-sm ${
+                      phoneError
+                        ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                        : "border-gray-200 focus:ring-primary/30 focus:border-primary"
+                    }`}
                   />
+                  {phoneError && (
+                    <p className="text-xs text-red-500 mt-1 font-medium">{phoneError}</p>
+                  )}
                 </div>
 
                 {/* Email */}
@@ -234,7 +258,7 @@ export default function EnrollmentModal({
                 <button
                   type="submit"
                   disabled={status === "submitting"}
-                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold tracking-wide py-4 rounded-xl transition-all shadow-lg hover:shadow-green-500/30 cursor-pointer text-sm uppercase disabled:opacity-75"
+                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-indigo-700 hover:from-indigo-700 hover:to-primary text-white font-bold tracking-wide py-4 rounded-xl transition-all shadow-lg hover:shadow-primary/30 cursor-pointer text-sm uppercase disabled:opacity-75"
                 >
                   <Send className="h-5 w-5" />
                   {status === "submitting" ? "Submitting..." : "Submit & Connect on WhatsApp"}

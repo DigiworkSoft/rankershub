@@ -13,6 +13,7 @@ const navLinks = [
   { name: "About Us", href: "/about" },
   { name: "Batches", href: "/batches" },
   { name: "Blogs", href: "/blogs" },
+  { name: "Videos", href: "/videos" },
   { name: "Contact", href: "/contact" },
 ];
 
@@ -35,6 +36,10 @@ export default function Navbar() {
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
+
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
 
   return (
     <nav

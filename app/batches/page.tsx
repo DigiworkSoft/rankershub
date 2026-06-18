@@ -12,16 +12,22 @@ export const metadata: Metadata = {
 // Fetch all data server-side — no client network waterfalls
 async function getData() {
   try {
-    const [videosResult, faqsResult, coursesResult] = await Promise.all([
+    const [videosResult, faqsResult, coursesResult, feePlansResult] = await Promise.all([
       query("SELECT id, title, youtube_url FROM youtube_videos ORDER BY created_at DESC"),
       query("SELECT id, category, question, answer FROM faqs ORDER BY created_at ASC"),
       query("SELECT id, title, description, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent, image_url FROM courses ORDER BY created_at DESC"),
+      query("SELECT * FROM fee_plans ORDER BY id ASC"),
     ]);
+
+    const courses = coursesResult.rows.map((course: any) => ({
+      ...course,
+      fee_plans: feePlansResult.rows.filter((plan: any) => plan.course_id === course.id),
+    }));
 
     return {
       videos: videosResult.rows,
       faqs: faqsResult.rows,
-      courses: coursesResult.rows,
+      courses,
     };
   } catch {
     return { videos: [], faqs: [], courses: [] };

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown, X, BadgePercent } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown, X } from "lucide-react";
 import EnquiryForm from "../_components/EnquiryForm";
 
 const WHATSAPP_NUMBER = "919272547817";
@@ -69,6 +69,7 @@ type Course = {
   next_batch_starts?: string | null;
   fees?: string | number | null;
   discount_percent?: string | number | null;
+  fee_plans?: Array<{ id: number; duration: string; fees: string | number; discount_percent: string | number }> | null;
 };
 
 interface BatchesClientProps {
@@ -147,6 +148,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
     batch: "",
     message: "",
   });
+  const [pdfPhoneError, setPdfPhoneError] = useState("");
 
   const openSyllabusModal = (batchTitle: string) => {
     setPdfModalBatchTitle(batchTitle);
@@ -160,10 +162,15 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
     document.body.style.overflow = "";
     setPdfFormData({ full_name: "", phone_number: "", batch: "", message: "" });
     setPdfFormStatus("idle");
+    setPdfPhoneError("");
   };
 
   const handlePdfFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (pdfFormData.phone_number.length !== 10) {
+      setPdfPhoneError("Phone number must be exactly 10 digits");
+      return;
+    }
     setPdfFormStatus("submitting");
     try {
       const res = await fetch("/api/enquiry", {
@@ -210,6 +217,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
       nextBatchStarts: c.next_batch_starts || "Admissions Open",
       fees: toFiniteNumber(c.fees),
       discountPercent: toFiniteNumber(c.discount_percent),
+      feePlans: c.fee_plans || [],
     }));
 
     return [...dbBatches].sort((a, b) => {
@@ -355,28 +363,59 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     </div>
                   </div>
 
-                  {batch.fees && batch.fees > 0 && (
-                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 p-4 md:p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Course Fees</p>
-                          {batch.discountPercent && batch.discountPercent > 0 ? (
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <p className="text-2xl md:text-3xl font-extrabold text-emerald-800">₹{formatIndianCurrency(Math.max(0, batch.fees - (batch.fees * Math.min(batch.discountPercent, 100)) / 100))}</p>
-                              <p className="text-sm md:text-base text-gray-500 line-through">₹{formatIndianCurrency(batch.fees)}</p>
+                  {((batch.fees && batch.fees > 0) || (batch.feePlans && batch.feePlans.length > 0)) && (
+                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 p-5 space-y-4">
+                      <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Course Fee Plans</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Base/Default Admission Fee Plan */}
+                        {batch.fees && batch.fees > 0 && (
+                          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-emerald-100 flex flex-col justify-between shadow-sm">
+                            <div>
+                              <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">
+                                {batch.duration ? `${batch.duration} Plan` : "Base Program"}
+                              </span>
+                              <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+                                <span className="text-xl font-black text-emerald-900">
+                                  ₹{formatIndianCurrency(Math.max(0, batch.fees - (batch.fees * Math.min(batch.discountPercent || 0, 100)) / 100))}
+                                </span>
+                                {batch.discountPercent && batch.discountPercent > 0 && (
+                                  <span className="text-xs text-gray-500 line-through">₹{formatIndianCurrency(batch.fees)}</span>
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            <p className="mt-1 text-2xl md:text-3xl font-extrabold text-emerald-800">₹{formatIndianCurrency(batch.fees)}</p>
-                          )}
-                        </div>
-
-                        {batch.discountPercent && batch.discountPercent > 0 && (
-                          <div className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
-                            <BadgePercent className="h-3.5 w-3.5" /> Save {Math.min(batch.discountPercent, 100)}%
+                            {batch.discountPercent && batch.discountPercent > 0 && (
+                              <div className="mt-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
+                                Save {Math.min(batch.discountPercent, 100)}%
+                              </div>
+                            )}
                           </div>
                         )}
+
+                        {/* Dynamic Duration Plans */}
+                        {batch.feePlans && batch.feePlans.map((plan: any) => {
+                          const planFees = Number(plan.fees);
+                          const planDiscount = Number(plan.discount_percent);
+                          const planFinal = planFees - (planFees * planDiscount) / 100;
+                          return (
+                            <div key={plan.id} className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-emerald-100 flex flex-col justify-between shadow-sm">
+                              <div>
+                                <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">{plan.duration} Plan</span>
+                                <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+                                  <span className="text-xl font-black text-emerald-900">₹{formatIndianCurrency(planFinal)}</span>
+                                  {planDiscount > 0 && (
+                                    <span className="text-xs text-gray-500 line-through">₹{formatIndianCurrency(planFees)}</span>
+                                  )}
+                                </div>
+                              </div>
+                              {planDiscount > 0 && (
+                                <div className="mt-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
+                                  Save {planDiscount}%
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                      <p className="mt-2 text-xs md:text-sm text-emerald-700/90">Limited-time offer available for early enrollment.</p>
                     </div>
                   )}
 
@@ -622,10 +661,25 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     type="tel"
                     required
                     value={pdfFormData.phone_number}
-                    onChange={(e) => setPdfFormData({ ...pdfFormData, phone_number: e.target.value })}
-                    placeholder="+91 XXXXX XXXXX"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                    onChange={(e) => {
+                      const cleanVal = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setPdfFormData({ ...pdfFormData, phone_number: cleanVal });
+                      if (cleanVal.length > 0 && cleanVal.length < 10) {
+                        setPdfPhoneError("Phone number must be exactly 10 digits");
+                      } else {
+                        setPdfPhoneError("");
+                      }
+                    }}
+                    placeholder="10-digit mobile number"
+                    className={`w-full px-4 py-3 rounded-xl border bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all text-sm ${
+                      pdfPhoneError
+                        ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                        : "border-gray-200 focus:ring-primary/30 focus:border-primary"
+                    }`}
                   />
+                  {pdfPhoneError && (
+                    <p className="text-xs text-red-500 mt-1 font-medium">{pdfPhoneError}</p>
+                  )}
                 </div>
 
                 <div>
