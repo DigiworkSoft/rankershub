@@ -11,12 +11,7 @@ type Course = {
   next_batch_starts?: string | null;
   fees?: number | string | null;
   discount_percent?: number | string | null;
-};
-
-const BATCH_DISPLAY_ORDER: Record<string, number> = {
-  "11th Commerce Regular": 1,
-  "12th Commerce Boards": 2,
-  "CA Foundation Intensive": 3,
+  ranking?: number | null;
 };
 
 function toFiniteNumber(value: number | string | null | undefined): number | null {
@@ -44,9 +39,9 @@ export default function BatchesInfoSection() {
   const displayCourses = useMemo(() => {
     return [...courses]
       .sort((a, b) => {
-        const aOrder = BATCH_DISPLAY_ORDER[a.title] ?? Number.MAX_SAFE_INTEGER;
-        const bOrder = BATCH_DISPLAY_ORDER[b.title] ?? Number.MAX_SAFE_INTEGER;
-        if (aOrder !== bOrder) return aOrder - bOrder;
+        const aRanking = a.ranking ?? 0;
+        const bRanking = b.ranking ?? 0;
+        if (aRanking !== bRanking) return aRanking - bRanking;
         return a.title.localeCompare(b.title);
       })
       .slice(0, 3);

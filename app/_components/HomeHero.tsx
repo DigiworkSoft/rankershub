@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Trophy, Star, PlayCircle } from "lucide-react";
+import EnrollmentModal from "./EnrollmentModal";
 
 export default function HomeHero() {
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   return (
     <section className="relative min-h-[68vh] md:min-h-[90vh] flex items-center overflow-hidden bg-white">
       <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/5 -skew-x-12 translate-x-1/4 hidden lg:block" />
@@ -29,12 +32,12 @@ export default function HomeHero() {
               Top faculty, 3X revision, and expert mentorship for CA foundation aspirants.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
-              <Link
-                href="/batches"
-                className="btn-primary w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 uppercase tracking-wide"
+              <button
+                onClick={() => setIsEnrollModalOpen(true)}
+                className="btn-primary w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer"
               >
                 Book Your Slot Now <ArrowRight className="w-5 h-5" />
-              </Link>
+              </button>
               <Link href="/#informative-videos" className="flex items-center justify-center gap-3 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold text-sm sm:text-base md:text-lg text-gray-700 hover:bg-indigo-50 transition-all border border-gray-200 hover:border-indigo-200">
                 <PlayCircle className="w-6 h-6 text-primary" /> Watch Demo
               </Link>
@@ -86,6 +89,10 @@ export default function HomeHero() {
           </motion.div>
         </div>
       </div>
+      <EnrollmentModal
+        isOpen={isEnrollModalOpen}
+        onClose={() => setIsEnrollModalOpen(false)}
+      />
     </section>
   );
 }

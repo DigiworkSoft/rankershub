@@ -7,7 +7,7 @@ import HomeHero from "./_components/HomeHero";
 import DemoLecturesSection from "./_components/DemoLecturesSection";
 import RelatedBlogsAutoScroll from "./_components/RelatedBlogsAutoScroll";
 import OurCoursesSection from "./_components/OurCoursesSection";
-import FeePlansSection from "./_components/FeePlansSection";
+// import FeePlansSection from "./_components/FeePlansSection";
 import PopupDisplay from "./_components/PopupDisplay";
 
 export const metadata: Metadata = {
@@ -44,8 +44,8 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-1 md:mt-3 mb-1 md:mb-0">
         <div className="rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
           <picture>
-            <source media="(max-width: 768px)" srcSet="/assets/photos/banner2.png" />
-            <img src="/assets/photos/banner.png" alt="Rankershub Banner" className="w-full h-auto object-cover" />
+            <source media="(max-width: 768px)" srcSet="/assets/photos/banner2.webp" />
+            <img src="/assets/photos/banner.webp" alt="Rankershub Banner" className="w-full h-auto object-cover" />
           </picture>
         </div>
       </section>
@@ -86,7 +86,7 @@ export default function HomePage() {
 
       <OurCoursesSection />
 
-      <FeePlansSection />
+      {/* <FeePlansSection /> */}
 
       <RelatedBlogsAutoScroll />
 

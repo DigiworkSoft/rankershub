@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { validateOrigin } from "@/lib/csrf";
+import { verifyCaptcha } from "@/lib/captcha";
 
 export async function POST(request: Request) {
   if (!validateOrigin(request)) {
@@ -15,10 +16,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { full_name, phone_number, batch, message } = await request.json();
+    const { full_name, phone_number, batch, message, captcha_token, captcha_answer } = await request.json();
 
     if (!full_name || !phone_number || !batch) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!verifyCaptcha(captcha_token, captcha_answer)) {
+      return NextResponse.json({ error: "Invalid captcha answer" }, { status: 400 });
     }
 
     // Insert into local PostgreSQL

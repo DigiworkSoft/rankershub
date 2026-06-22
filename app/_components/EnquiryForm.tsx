@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { Send } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function EnquiryForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
+  const [batches, setBatches] = useState<string[]>(["11th Commerce", "12th Commerce", "Other"]);
   const [formData, setFormData] = useState({
     full_name: "",
     phone_number: "",
@@ -15,6 +16,46 @@ export default function EnquiryForm() {
   });
 
   const [phoneError, setPhoneError] = useState("");
+  const [captchaSvg, setCaptchaSvg] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  const fetchCaptcha = async () => {
+    try {
+      const res = await fetch("/api/captcha");
+      if (res.ok) {
+        const data = await res.json();
+        setCaptchaSvg(data.svg);
+        setCaptchaToken(data.token);
+        setCaptchaAnswer("");
+      }
+    } catch {
+      // Fail silently
+    }
+  };
+
+  useEffect(() => {
+    async function fetchBatches() {
+      try {
+        const res = await fetch("/api/courses");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const courseTitles = data.map((course: any) => course.title);
+            if (!courseTitles.includes("Other")) {
+              courseTitles.push("Other");
+            }
+            setBatches(courseTitles);
+            setFormData((prev) => ({ ...prev, batch: courseTitles[0] }));
+          }
+        }
+      } catch {
+        // Fail silently
+      }
+    }
+    fetchBatches();
+    fetchCaptcha();
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -27,13 +68,21 @@ export default function EnquiryForm() {
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          captcha_token: captchaToken,
+          captcha_answer: captchaAnswer,
+        }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed sending enquiry");
+      }
       setStatus("success");
-    } catch {
+    } catch (err: any) {
       setStatus("idle");
-      alert("Error sending enquiry. Please try again.");
+      alert(err.message || "Error sending enquiry. Please try again.");
+      fetchCaptcha();
     }
   };
 
@@ -113,9 +162,9 @@ export default function EnquiryForm() {
             onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none bg-white"
           >
-            <option>11th Commerce</option>
-            <option>12th Commerce</option>
-            <option>Other</option>
+            {batches.map((batchName) => (
+              <option key={batchName} value={batchName}>{batchName}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -128,6 +177,31 @@ export default function EnquiryForm() {
             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none resize-none"
           />
         </div>
+        {captchaSvg && (
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+              Security Code
+            </label>
+            <div className="flex items-center gap-3 mb-2 bg-gray-50/50 p-2 rounded-xl border border-gray-200">
+              <div dangerouslySetInnerHTML={{ __html: captchaSvg }} className="flex-shrink-0 animate-fadeIn" />
+              <button
+                type="button"
+                onClick={fetchCaptcha}
+                className="text-xs text-primary font-bold hover:underline cursor-pointer"
+              >
+                Refresh
+              </button>
+            </div>
+            <input
+              required
+              type="text"
+              placeholder="Enter security code"
+              value={captchaAnswer}
+              onChange={(e) => setCaptchaAnswer(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-sm bg-white"
+            />
+          </div>
+        )}
         <button
           type="submit"
           disabled={status === "submitting"}

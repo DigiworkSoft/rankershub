@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   Target, Eye, Award, BookOpen, Users, TrendingUp,
 } from "lucide-react";
+import FacultySection from "../_components/FacultySection";
 
 const features = [
   { icon: Users, title: "Expert Faculty", description: "Learn from highly experienced and dedicated commerce professionals." },
@@ -31,7 +32,7 @@ export default function AboutClient() {
             transition={{ delay: 0.1 }}
             className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
           >
-            Building futures through quality commerce education since 2026.
+            Building futures through quality commerce education.
           </motion.p>
         </div>
 
@@ -119,6 +120,7 @@ export default function AboutClient() {
             ))}
           </div>
         </div>
+        <FacultySection />
       </div>
     </div>
   );

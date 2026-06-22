@@ -40,3 +40,25 @@ export async function uploadFile(
     throw new Error(`Local file storage upload failed: ${err.message}`);
   }
 }
+
+export async function deleteFile(fileUrlOrName: string): Promise<void> {
+  if (!fileUrlOrName) return;
+  const filename = fileUrlOrName.split("/").pop();
+  if (!filename) return;
+
+  if (supabase) {
+    await supabase.storage.from(BUCKET).remove([filename]);
+    return;
+  }
+
+  // Local storage fallback
+  try {
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    const filePath = path.join(uploadDir, filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch {
+    // Fail silently in local development fallback
+  }
+}

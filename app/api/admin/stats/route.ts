@@ -79,7 +79,10 @@ export async function GET(request: Request) {
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       const labelStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       trendMap[dateStr] = { date: labelStr, enquiries: 0, admissions: 0 };
     }

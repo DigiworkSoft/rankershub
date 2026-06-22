@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Book, FileText, Trash2, RefreshCw, Edit, X, Maximize, ExternalLink, Search, ChevronDown, ChevronRight, Menu, MessageSquare, HelpCircle, Layers, LayoutDashboard, BookOpen } from "lucide-react";
+import { Book, FileText, Trash2, RefreshCw, Edit, X, Maximize, ExternalLink, Search, ChevronDown, ChevronRight, Menu, MessageSquare, HelpCircle, Layers, LayoutDashboard, BookOpen, Eye, EyeOff } from "lucide-react";
 import RichTextEditor from "./_components/RichTextEditor";
 import { PRESET_BLOG_TAGS } from "@/lib/blog-tags";
 
@@ -17,8 +17,32 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [captchaSvg, setCaptchaSvg] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  const fetchCaptcha = async () => {
+    try {
+      const res = await fetch("/api/captcha");
+      if (res.ok) {
+        const data = await res.json();
+        setCaptchaSvg(data.svg);
+        setCaptchaToken(data.token);
+        setCaptchaAnswer("");
+      }
+    } catch {
+      // Fail silently
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      fetchCaptcha();
+    }
+  }, [isAuthenticated]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [stats, setStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -67,6 +91,17 @@ export default function AdminPage() {
   const [enquiryMeta, setEnquiryMeta] = useState<any>(null);
   const [blogPage, setBlogPage] = useState(1);
   const [blogMeta, setBlogMeta] = useState<any>(null);
+  const [coursePage, setCoursePage] = useState(1);
+  const coursesPerPage = 5;
+  const totalCoursePages = Math.ceil(courses.length / coursesPerPage);
+  const startCourseIndex = (coursePage - 1) * coursesPerPage;
+  const paginatedCourses = courses.slice(startCourseIndex, startCourseIndex + coursesPerPage);
+
+  useEffect(() => {
+    if (coursePage > 1 && startCourseIndex >= courses.length) {
+      setCoursePage(Math.max(1, Math.ceil(courses.length / coursesPerPage)));
+    }
+  }, [courses.length, coursePage, coursesPerPage, startCourseIndex]);
 
   useEffect(() => {
     if (!confirmDelete) return;
@@ -109,7 +144,10 @@ export default function AdminPage() {
     description: "",
     file: null as File | null,
     fee_plans: [] as Array<{ duration: string; fees: string; discount_percent: string }>,
+    ranking: "0",
+    syllabus_pdf: null as File | null,
   });
+  const [removeSyllabusPdf, setRemoveSyllabusPdf] = useState(false);
 
   const addFeePlanRow = () => {
     setCourseForm((prev) => ({
@@ -173,15 +211,23 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(loginForm),
+        body: JSON.stringify({
+          ...loginForm,
+          captcha_token: captchaToken,
+          captcha_answer: captchaAnswer,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setIsAuthenticated(true);
       } else {
         setLoginError(data.error || "Login failed");
+        fetchCaptcha();
       }
-    } catch { setLoginError("Connection error"); }
+    } catch {
+      setLoginError("Connection error");
+      fetchCaptcha();
+    }
     setLoginLoading(false);
   };
 
@@ -274,6 +320,12 @@ export default function AdminPage() {
       return;
     }
 
+    const rankingVal = parseInt(courseForm.ranking || "0", 10);
+    if (isNaN(rankingVal) || rankingVal < 0) {
+      alert("Course ranking must be a non-negative integer.");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("title", courseForm.title);
     formData.append("description", courseForm.description);
@@ -286,7 +338,10 @@ export default function AdminPage() {
     formData.append("syllabus_details", courseForm.syllabus_details);
     formData.append("next_batch_starts", courseForm.next_batch_starts);
     formData.append("fee_plans", JSON.stringify(courseForm.fee_plans || []));
+    formData.append("ranking", String(rankingVal));
     if (courseForm.file) formData.append("image", courseForm.file);
+    if (courseForm.syllabus_pdf) formData.append("syllabus_pdf", courseForm.syllabus_pdf);
+    if (removeSyllabusPdf) formData.append("remove_syllabus_pdf", "true");
 
     try {
       const endpoint = editingCourse ? `/api/admin/courses?id=${editingCourse.id}` : "/api/admin/courses";
@@ -308,10 +363,17 @@ export default function AdminPage() {
           description: "",
           file: null,
           fee_plans: [],
+          ranking: "0",
+          syllabus_pdf: null,
         });
+        setRemoveSyllabusPdf(false);
         setEditingCourse(null);
         fetchCourses();
-      } else throw new Error();
+        if (!editingCourse) setCoursePage(1);
+      } else {
+        const errorData = await res.json().catch(() => null);
+        alert(errorData?.error || (editingCourse ? "Failed to update batch" : "Failed to add batch"));
+      }
     } catch { alert(editingCourse ? "Failed to update batch" : "Failed to add batch"); }
   };
 
@@ -334,7 +396,10 @@ export default function AdminPage() {
         fees: p.fees != null ? String(p.fees) : "",
         discount_percent: p.discount_percent != null ? String(p.discount_percent) : "",
       })) : [],
+      ranking: course.ranking != null ? String(course.ranking) : "0",
+      syllabus_pdf: null,
     });
+    setRemoveSyllabusPdf(false);
     window.scrollTo(0, 0);
   };
 
@@ -353,7 +418,10 @@ export default function AdminPage() {
       description: "",
       file: null,
       fee_plans: [],
+      ranking: "0",
+      syllabus_pdf: null,
     });
+    setRemoveSyllabusPdf(false);
   };
 
   const handleBlogSubmit = async (e: React.FormEvent) => {
@@ -687,8 +755,48 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-              <input required type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+              <div className="relative">
+                <input
+                  required
+                  type={showPassword ? "text" : "password"}
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  className="w-full px-4 py-3 pr-10 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
+            {captchaSvg && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Security Code
+                </label>
+                <div className="flex items-center gap-3 mb-2">
+                  <div dangerouslySetInnerHTML={{ __html: captchaSvg }} className="flex-shrink-0" />
+                  <button
+                    type="button"
+                    onClick={fetchCaptcha}
+                    className="text-xs text-primary font-bold hover:underline cursor-pointer"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <input
+                  required
+                  type="text"
+                  placeholder="Enter code"
+                  value={captchaAnswer}
+                  onChange={(e) => setCaptchaAnswer(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all text-sm"
+                />
+              </div>
+            )}
             {loginError && <p className="text-sm text-red-500">{loginError}</p>}
             <button disabled={loginLoading} type="submit" className="btn-primary w-full py-3">{loginLoading ? "Logging in..." : "Login"}</button>
           </form>
@@ -970,6 +1078,10 @@ export default function AdminPage() {
                       <span className="w-2.5 h-2.5 bg-primary rounded-full" /> 
                       Quick Enquiries
                     </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 bg-[#10b981] rounded-full" /> 
+                      Admission Enquiries
+                    </span>
                   </div>
                 </div>
 
@@ -977,7 +1089,7 @@ export default function AdminPage() {
                   {stats?.trend && stats.trend.length > 0 ? (
                     (() => {
                       const trend = stats.trend;
-                      const maxVal = Math.max(...trend.map((t: any) => t.enquiries), 5);
+                      const maxVal = Math.max(...trend.map((t: any) => Math.max(t.enquiries || 0, t.admissions || 0)), 5);
                       const width = 600;
                       const height = 220;
                       const paddingX = 40;
@@ -986,11 +1098,14 @@ export default function AdminPage() {
                       const getX = (idx: number) => paddingX + (idx * (width - paddingX * 2)) / Math.max(trend.length - 1, 1);
                       const getY = (val: number) => height - paddingY - (val * (height - paddingY * 2)) / maxVal;
 
-                      const ePoints = trend.map((t: any, i: number) => ({ x: getX(i), y: getY(t.enquiries) }));
+                      const ePoints = trend.map((t: any, i: number) => ({ x: getX(i), y: getY(t.enquiries || 0) }));
+                      const aPoints = trend.map((t: any, i: number) => ({ x: getX(i), y: getY(t.admissions || 0) }));
 
                       const eLine = ePoints.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(" ");
+                      const aLine = aPoints.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(" ");
 
                       const eArea = `${eLine} L ${ePoints[ePoints.length-1].x} ${height - paddingY} L ${ePoints[0].x} ${height - paddingY} Z`;
+                      const aArea = `${aLine} L ${aPoints[aPoints.length-1].x} ${height - paddingY} L ${aPoints[0].x} ${height - paddingY} Z`;
 
                       return (
                         <svg className="w-full h-full" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
@@ -998,6 +1113,10 @@ export default function AdminPage() {
                             <linearGradient id="gradient-enquiries" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
                               <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+                            </linearGradient>
+                            <linearGradient id="gradient-admissions" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                             </linearGradient>
                           </defs>
 
@@ -1015,13 +1134,18 @@ export default function AdminPage() {
 
                           {/* Render Areas */}
                           {ePoints.length > 0 && <path d={eArea} fill="url(#gradient-enquiries)" />}
+                          {aPoints.length > 0 && <path d={aArea} fill="url(#gradient-admissions)" />}
 
                           {/* Render Lines */}
                           {ePoints.length > 0 && <path d={eLine} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                          {aPoints.length > 0 && <path d={aLine} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
 
                           {/* Data points */}
                           {ePoints.map((p: any, idx: number) => (
                             <circle key={`e-${idx}`} cx={p.x} cy={p.y} r="3.5" fill="#ffffff" stroke="#4f46e5" strokeWidth="2" className="hover:r-5 transition-all cursor-pointer" />
+                          ))}
+                          {aPoints.map((p: any, idx: number) => (
+                            <circle key={`a-${idx}`} cx={p.x} cy={p.y} r="3.5" fill="#ffffff" stroke="#10b981" strokeWidth="2" className="hover:r-5 transition-all cursor-pointer" />
                           ))}
 
                           {/* X Axis Labels */}
@@ -1299,9 +1423,52 @@ export default function AdminPage() {
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Benefits of Joining</label><textarea required rows={4} placeholder="One benefit per line" value={courseForm.benefits} onChange={(e) => setCourseForm({ ...courseForm, benefits: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Course Syllabus</label><textarea required rows={4} placeholder="One syllabus topic per line" value={courseForm.syllabus} onChange={(e) => setCourseForm({ ...courseForm, syllabus: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Syllabus Dropdown Sentences (Optional)</label><textarea rows={4} placeholder="One line per topic in format: Topic::Sentence" value={courseForm.syllabus_details} onChange={(e) => setCourseForm({ ...courseForm, syllabus_details: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">Next Batch Starts Date</label><input required type="text" placeholder="e.g. 1st May, 2026" value={courseForm.next_batch_starts} onChange={(e) => setCourseForm({ ...courseForm, next_batch_starts: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Next Batch Starts Date</label>
+                    <input required type="text" placeholder="e.g. 1st May, 2026" value={courseForm.next_batch_starts} onChange={(e) => setCourseForm({ ...courseForm, next_batch_starts: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Course Ranking (Non-negative Integer)</label>
+                    <input required type="number" min="0" step="1" placeholder="e.g. 1" value={courseForm.ranking} onChange={(e) => setCourseForm({ ...courseForm, ranking: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  </div>
+                </div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">Batch Summary (Optional)</label><textarea rows={3} value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">Batch Image</label><input type="file" accept="image/*" onChange={(e) => setCourseForm({ ...courseForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Batch Image</label>
+                    <input type="file" accept="image/*" onChange={(e) => setCourseForm({ ...courseForm, file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Course Syllabus PDF (Optional, Max 10MB)</label>
+                    <input type="file" accept=".pdf" onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.size > 10 * 1024 * 1024) {
+                        alert("File too large. Maximum size is 10MB.");
+                        e.target.value = "";
+                        return;
+                      }
+                      if (file && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                        alert("Invalid file type. Only PDF files are allowed.");
+                        e.target.value = "";
+                        return;
+                      }
+                      setCourseForm({ ...courseForm, syllabus_pdf: file });
+                    }} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" />
+                    {editingCourse && editingCourse.syllabus_pdf && (
+                      <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-100 w-fit">
+                        <span className="text-gray-500">Current PDF:</span>
+                        <a href={editingCourse.syllabus_pdf} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                          View PDF <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <label className="flex items-center gap-1.5 ml-4 cursor-pointer text-red-500 hover:text-red-700">
+                          <input type="checkbox" checked={removeSyllabusPdf} onChange={(e) => setRemoveSyllabusPdf(e.target.checked)} className="rounded text-red-500 focus:ring-red-400" />
+                          Remove PDF
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">{editingCourse ? "Update Batch" : "Add Batch"}</button>
               </form>
             </div>
@@ -1314,6 +1481,7 @@ export default function AdminPage() {
                     <thead>
                       <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b">
                         <th className="p-4">Batch</th>
+                        <th className="p-4">Ranking</th>
                         <th className="p-4">Schedule</th>
                         <th className="p-4">Default Price</th>
                         <th className="p-4">Fee Plans</th>
@@ -1321,10 +1489,10 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {courses.length === 0 ? (
-                        <tr><td colSpan={5} className="text-center p-6 text-gray-500">No batches added yet.</td></tr>
+                      {paginatedCourses.length === 0 ? (
+                        <tr><td colSpan={6} className="text-center p-6 text-gray-500">No batches added yet.</td></tr>
                       ) : (
-                        courses.map((course) => {
+                        paginatedCourses.map((course) => {
                           const pricing = getCoursePricing(course);
                           return (
                             <tr key={course.id} className="border-b hover:bg-gray-50 transition-colors">
@@ -1340,6 +1508,9 @@ export default function AdminPage() {
                                     <p className="text-xs text-gray-500 mt-1 max-w-[250px] line-clamp-2">{course.description || course.benefits || "-"}</p>
                                   </div>
                                 </div>
+                              </td>
+                              <td className="p-4 text-sm font-semibold text-gray-700">
+                                {course.ranking ?? 0}
                               </td>
                               <td className="p-4 text-sm text-gray-600">
                                 <p><span className="font-semibold text-gray-900">Duration:</span> {course.duration || "-"}</p>
@@ -1394,9 +1565,9 @@ export default function AdminPage() {
                 </div>
                 {/* Mobile Cards */}
                 <div className="md:hidden divide-y divide-gray-100">
-                  {courses.length === 0 ? (
+                  {paginatedCourses.length === 0 ? (
                     <p className="text-center p-6 text-gray-500">No batches added yet.</p>
-                  ) : courses.map((course) => {
+                  ) : paginatedCourses.map((course) => {
                     const pricing = getCoursePricing(course);
                     return (
                       <div key={course.id} className="p-4 space-y-3">
@@ -1421,6 +1592,7 @@ export default function AdminPage() {
                           <div><span className="font-semibold text-gray-900">Duration:</span> {course.duration || "-"}</div>
                           <div><span className="font-semibold text-gray-900">Timing:</span> {course.timing || "-"}</div>
                           <div><span className="font-semibold text-gray-900">Starts:</span> {course.next_batch_starts || "-"}</div>
+                          <div><span className="font-semibold text-gray-900">Ranking:</span> {course.ranking ?? 0}</div>
                           {pricing && (
                             <div>
                               <span className="font-semibold text-gray-900">Price:</span> ₹{formatIndianCurrency(pricing.finalPrice)}
@@ -1446,6 +1618,27 @@ export default function AdminPage() {
                     );
                   })}
                 </div>
+                {totalCoursePages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-6 pb-6 border-t border-gray-100 pt-4">
+                    <button
+                      disabled={coursePage === 1}
+                      onClick={() => setCoursePage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs font-semibold text-gray-500">
+                      Page {coursePage} of {totalCoursePages}
+                    </span>
+                    <button
+                      disabled={coursePage === totalCoursePages}
+                      onClick={() => setCoursePage((p) => Math.min(totalCoursePages, p + 1))}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

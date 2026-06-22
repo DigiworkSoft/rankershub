@@ -27,6 +27,23 @@ export default function EnrollmentModal({
   });
 
   const [phoneError, setPhoneError] = useState("");
+  const [captchaSvg, setCaptchaSvg] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  const fetchCaptcha = async () => {
+    try {
+      const res = await fetch("/api/captcha");
+      if (res.ok) {
+        const data = await res.json();
+        setCaptchaSvg(data.svg);
+        setCaptchaToken(data.token);
+        setCaptchaAnswer("");
+      }
+    } catch {
+      // Fail silently
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -44,6 +61,7 @@ export default function EnrollmentModal({
       });
       setStatus("idle");
       setPhoneError("");
+      fetchCaptcha();
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -87,10 +105,15 @@ export default function EnrollmentModal({
           email: formData.email || null,
           course: formData.course,
           message: formData.message || null,
+          captcha_token: captchaToken,
+          captcha_answer: captchaAnswer,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to save enquiry in database");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to save enquiry in database");
+      }
 
       setStatus("success");
 
@@ -101,8 +124,10 @@ export default function EnrollmentModal({
         onClose();
         window.open(whatsappUrl, "_blank");
       }, 500);
-    } catch {
+    } catch (err: any) {
       setStatus("error");
+      alert(err.message || "An error occurred. Please try again.");
+      fetchCaptcha();
     }
   };
 
@@ -253,6 +278,33 @@ export default function EnrollmentModal({
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm resize-none"
                   />
                 </div>
+
+                {captchaSvg && (
+                  <div>
+                    <label htmlFor="enroll-captcha" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      Security Code
+                    </label>
+                    <div className="flex items-center gap-3 mb-2 bg-gray-50/50 p-2 rounded-xl border border-gray-200">
+                      <div dangerouslySetInnerHTML={{ __html: captchaSvg }} className="flex-shrink-0 animate-fadeIn" />
+                      <button
+                        type="button"
+                        onClick={fetchCaptcha}
+                        className="text-xs text-primary font-bold hover:underline cursor-pointer"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    <input
+                      id="enroll-captcha"
+                      required
+                      type="text"
+                      placeholder="Enter security code"
+                      value={captchaAnswer}
+                      onChange={(e) => setCaptchaAnswer(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+                    />
+                  </div>
+                )}
 
                 {/* Submit */}
                 <button

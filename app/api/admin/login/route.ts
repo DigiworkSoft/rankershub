@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { signToken } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { verifyCaptcha } from "@/lib/captcha";
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
@@ -12,10 +13,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { username, password } = await request.json();
+    const { username, password, captcha_token, captcha_answer } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json({ error: "Username and password required" }, { status: 400 });
+    }
+
+    if (!verifyCaptcha(captcha_token, captcha_answer)) {
+      return NextResponse.json({ error: "Invalid captcha answer" }, { status: 400 });
     }
 
     const envAdminUsername = process.env.ADMIN_USERNAME;

@@ -18,11 +18,7 @@ const BATCH_SUBTITLE_BY_TITLE: Record<string, string> = {
   "CA Foundation Intensive": "Professional Gateway",
 };
 
-const BATCH_DISPLAY_ORDER: Record<string, number> = {
-  "11th Commerce Regular": 1,
-  "12th Commerce Boards": 2,
-  "CA Foundation Intensive": 3,
-};
+
 
 const defaultFaqSections = [
   {
@@ -70,6 +66,8 @@ type Course = {
   fees?: string | number | null;
   discount_percent?: string | number | null;
   fee_plans?: Array<{ id: number; duration: string; fees: string | number; discount_percent: string | number }> | null;
+  ranking?: number | null;
+  syllabus_pdf?: string | null;
 };
 
 interface BatchesClientProps {
@@ -211,20 +209,21 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
       description: c.description || "Comprehensive and focused batch for better exam performance.",
       benefits: parseMultiLineOrComma(c.benefits).length ? parseMultiLineOrComma(c.benefits) : ["Specialized curriculum", "Expert guidance", "Comprehensive material", "Recorded lectures available"],
       syllabus: parseMultiLineOrComma(c.syllabus).length ? parseMultiLineOrComma(c.syllabus) : ["Core Subject Focus", "Practice Modules", "Test Series"],
-  syllabusDetailsMap: parseSyllabusDetails(c.syllabus_details),
+      syllabusDetailsMap: parseSyllabusDetails(c.syllabus_details),
       duration: c.duration || "Flexible",
       timing: c.timing || "Contact for details",
       nextBatchStarts: c.next_batch_starts || "Admissions Open",
       fees: toFiniteNumber(c.fees),
       discountPercent: toFiniteNumber(c.discount_percent),
       feePlans: c.fee_plans || [],
+      ranking: c.ranking ?? 0,
+      syllabus_pdf: c.syllabus_pdf ?? null,
     }));
 
     return [...dbBatches].sort((a, b) => {
-      const aOrder = BATCH_DISPLAY_ORDER[a.title] ?? Number.MAX_SAFE_INTEGER;
-      const bOrder = BATCH_DISPLAY_ORDER[b.title] ?? Number.MAX_SAFE_INTEGER;
-
-      if (aOrder !== bOrder) return aOrder - bOrder;
+      const aRanking = a.ranking ?? 0;
+      const bRanking = b.ranking ?? 0;
+      if (aRanking !== bRanking) return aRanking - bRanking;
       return a.title.localeCompare(b.title);
     });
   }, [courses]);
@@ -309,9 +308,9 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
         {/* Banner */}
         <div className="mb-6 md:mb-10 rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-lg border-4 border-white">
           <picture>
-            <source media="(max-width: 767px)" srcSet="/assets/photos/batch2.png" />
+            <source media="(max-width: 767px)" srcSet="/assets/photos/batch2.webp" />
             <img
-              src="/assets/photos/batch.png"
+              src="/assets/photos/batch.webp"
               alt="RankersHub Batches"
               className="w-full h-auto object-cover"
             />
@@ -436,14 +435,23 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                     <button onClick={() => openWhatsAppForCourse(batch.title)} className="btn-primary w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 flex items-center justify-center gap-2 uppercase tracking-widest text-sm">
                       Enroll Now <ArrowRight className="w-5 h-5" />
                     </button>
-                    {SYLLABUS_PDF_MAP_BY_TITLE[batch.title] && (
+                    {batch.syllabus_pdf ? (
+                      <a
+                        href={batch.syllabus_pdf}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-gray-50 text-gray-700 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center justify-center gap-2 border border-gray-100 text-sm"
+                      >
+                        📄 Download Syllabus
+                      </a>
+                    ) : SYLLABUS_PDF_MAP_BY_TITLE[batch.title] ? (
                       <button
                         onClick={() => openSyllabusModal(batch.title)}
                         className="bg-gray-50 text-gray-700 w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center justify-center gap-2 border border-gray-100 text-sm cursor-pointer"
                       >
                         <Download className="w-5 h-5" /> Syllabus PDF
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 

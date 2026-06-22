@@ -15,7 +15,7 @@ async function getData() {
     const [videosResult, faqsResult, coursesResult, feePlansResult] = await Promise.all([
       query("SELECT id, title, youtube_url FROM youtube_videos ORDER BY created_at DESC"),
       query("SELECT id, category, question, answer FROM faqs ORDER BY created_at ASC"),
-      query("SELECT id, title, description, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent, image_url FROM courses ORDER BY created_at DESC"),
+      query("SELECT id, title, description, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent, image_url, ranking, syllabus_pdf FROM courses ORDER BY ranking ASC, title ASC"),
       query("SELECT * FROM fee_plans ORDER BY id ASC"),
     ]);
 

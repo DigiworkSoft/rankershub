@@ -26,6 +26,23 @@ export function validateUploadedFile(file: File): { valid: boolean; error?: stri
   return { valid: true };
 }
 
+export function validateUploadedPdf(file: File): { valid: boolean; error?: string } {
+  if (file.size > MAX_FILE_SIZE) {
+    return { valid: false, error: `File too large. Maximum size is 10MB.` };
+  }
+
+  if (file.type !== "application/pdf") {
+    return { valid: false, error: `Invalid file type "${file.type}". Allowed: PDF only.` };
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  if (ext !== "pdf") {
+    return { valid: false, error: `Invalid file extension ".${ext}". Allowed: pdf.` };
+  }
+
+  return { valid: true };
+}
+
 export function sanitizeFilename(prefix: string, originalName: string): string {
   const ext = originalName.split(".").pop()?.toLowerCase() || "jpg";
   const safeExt = ALLOWED_EXTENSIONS.has(ext) ? ext : "jpg";
