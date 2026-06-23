@@ -30,6 +30,7 @@ export default function EnrollmentModal({
   const [captchaSvg, setCaptchaSvg] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [courses, setCourses] = useState<string[]>(["11th Commerce", "12th Commerce", "Weekend Batch"]);
 
   const fetchCaptcha = async () => {
     try {
@@ -47,6 +48,20 @@ export default function EnrollmentModal({
 
   useEffect(() => {
     setIsMounted(true);
+    async function fetchCourses() {
+      try {
+        const res = await fetch("/api/courses");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setCourses(data.map((course: any) => course.title));
+          }
+        }
+      } catch {
+        // Fail silently
+      }
+    }
+    fetchCourses();
   }, []);
 
   // Reset or pre-fill form when modal opens
@@ -162,8 +177,13 @@ export default function EnrollmentModal({
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/20 rounded-full translate-y-1/2 -translate-x-1/2" />
                 <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors cursor-pointer"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClose();
+                  }}
+                  className="absolute top-4 right-4 w-10 h-10 z-20 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors cursor-pointer"
                   aria-label="Close modal"
                 >
                   <X className="h-5 w-5" />
@@ -257,9 +277,9 @@ export default function EnrollmentModal({
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm appearance-none cursor-pointer"
                   >
                     <option value="" disabled>Select a course</option>
-                    <option value="11th Commerce">11th Commerce</option>
-                    <option value="12th Commerce">12th Commerce</option>
-                    <option value="Weekend Batch">Weekend Batch</option>
+                    {courses.map((courseName) => (
+                      <option key={courseName} value={courseName}>{courseName}</option>
+                    ))}
                   </select>
                 </div>
 

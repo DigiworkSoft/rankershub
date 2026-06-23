@@ -9,6 +9,11 @@ type FooterBlog = {
   title: string;
 };
 
+type FooterCourse = {
+  id: number;
+  title: string;
+};
+
 async function getFooterBlogs(): Promise<FooterBlog[]> {
   try {
     const result = await query("SELECT id, title FROM blogs WHERE published_at <= NOW() ORDER BY published_at DESC LIMIT 8");
@@ -18,8 +23,18 @@ async function getFooterBlogs(): Promise<FooterBlog[]> {
   }
 }
 
+async function getFooterCourses(): Promise<FooterCourse[]> {
+  try {
+    const result = await query("SELECT id, title FROM courses ORDER BY ranking ASC, title ASC LIMIT 5");
+    return result.rows as FooterCourse[];
+  } catch {
+    return [];
+  }
+}
+
 export default async function Footer() {
   const latestBlogs = await getFooterBlogs();
+  const footerCourses = await getFooterCourses();
 
   return (
     <footer className="bg-gray-900 text-gray-300 pt-16 pb-8">
@@ -69,9 +84,21 @@ export default async function Footer() {
           <div>
             <h3 className="text-white font-bold mb-6 uppercase tracking-widest text-sm">Our Batches</h3>
             <ul className="space-y-4 text-sm">
-              <li><Link href="/batches" className="hover:text-secondary transition-colors">11th Commerce Regular</Link></li>
-              <li><Link href="/batches" className="hover:text-secondary transition-colors">12th Commerce Boards</Link></li>
-              <li><Link href="/batches" className="hover:text-secondary transition-colors">CA Foundation Course</Link></li>
+              {footerCourses.length === 0 ? (
+                <>
+                  <li><Link href="/batches" className="hover:text-secondary transition-colors">11th Commerce Regular</Link></li>
+                  <li><Link href="/batches" className="hover:text-secondary transition-colors">12th Commerce Boards</Link></li>
+                  <li><Link href="/batches" className="hover:text-secondary transition-colors">CA Foundation Course</Link></li>
+                </>
+              ) : (
+                footerCourses.map((course) => (
+                  <li key={course.id}>
+                    <Link href="/batches" className="hover:text-secondary transition-colors font-medium">
+                      {course.title}
+                    </Link>
+                  </li>
+                ))
+              )}
             </ul>
           </div>
 
@@ -130,7 +157,7 @@ export default async function Footer() {
             </div>
           </div>
 
-          <p className="text-center text-xs">&copy; {new Date().getFullYear()} Rankerhub Education. All rights reserved.</p>
+          <p className="text-center text-xs">&copy; {new Date().getFullYear()} RankersHub Education. All rights reserved.</p>
         </div>
       </div>
     </footer>

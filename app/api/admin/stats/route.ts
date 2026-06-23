@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyToken, getTokenFromRequest } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const token = getTokenFromRequest(request);
   if (!token || !verifyToken(token)) {
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
     // Aggregate the distribution to merge duplicates (since "11th Commerce" might be in both standard & admission)
     const distributionMap: Record<string, number> = {};
     batchDistribution.rows.forEach((row: { label: string; count: number }) => {
-      const label = row.label.trim();
+      const label = String(row.label || "Unspecified").trim();
       distributionMap[label] = (distributionMap[label] || 0) + row.count;
     });
     const formattedDistribution = Object.entries(distributionMap).map(([label, count]) => ({
@@ -56,20 +58,20 @@ export async function GET(request: Request) {
     })).sort((a, b) => b.count - a.count);
 
     // 8. Trend by date (last 14 days)
-    // Query standard enquiries grouped by day
+    // Query standard enquiries grouped by day - group by explicit expression to be compatible with all PG engines
     const standardTrend = await query(`
-      SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS date, COUNT(*)::int AS count 
+      SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS trend_date, COUNT(*)::int AS count 
       FROM enquiries 
       WHERE created_at >= NOW() - INTERVAL '14 days'
-      GROUP BY date
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
     `);
 
-    // Query admission enquiries grouped by day
+    // Query admission enquiries grouped by day - group by explicit expression to be compatible with all PG engines
     const admissionTrend = await query(`
-      SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS date, COUNT(*)::int AS count 
+      SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS trend_date, COUNT(*)::int AS count 
       FROM admission_enquiries 
       WHERE created_at >= NOW() - INTERVAL '14 days'
-      GROUP BY date
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
     `);
 
     // Combine trends
@@ -87,15 +89,15 @@ export async function GET(request: Request) {
       trendMap[dateStr] = { date: labelStr, enquiries: 0, admissions: 0 };
     }
 
-    standardTrend.rows.forEach((row: { date: string; count: number }) => {
-      if (trendMap[row.date]) {
-        trendMap[row.date].enquiries = row.count;
+    standardTrend.rows.forEach((row: { trend_date: string; count: number }) => {
+      if (trendMap[row.trend_date]) {
+        trendMap[row.trend_date].enquiries = row.count;
       }
     });
 
-    admissionTrend.rows.forEach((row: { date: string; count: number }) => {
-      if (trendMap[row.date]) {
-        trendMap[row.date].admissions = row.count;
+    admissionTrend.rows.forEach((row: { trend_date: string; count: number }) => {
+      if (trendMap[row.trend_date]) {
+        trendMap[row.trend_date].admissions = row.count;
       }
     });
 
@@ -114,7 +116,8 @@ export async function GET(request: Request) {
       distribution: formattedDistribution,
       trend: trendData
     });
-  } catch (_err) {
-    return NextResponse.json({ error: "Failed to fetch dashboard statistics" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Dashboard stats error:", err);
+    return NextResponse.json({ error: "Failed to fetch dashboard statistics", details: err?.message }, { status: 500 });
   }
 }
