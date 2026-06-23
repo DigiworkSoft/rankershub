@@ -15,6 +15,9 @@ export const metadata: Metadata = {
     description: "Maharashtra Board-focused 11th & 12th Commerce Coaching with top faculty.",
     type: "website",
   },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

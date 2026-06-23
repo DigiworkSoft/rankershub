@@ -85,7 +85,7 @@ export default async function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-secondary shrink-0" />
-                <span>+91 9272547817</span>
+                <span suppressHydrationWarning>+91 9272547817</span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-secondary shrink-0" />

@@ -33,7 +33,7 @@ export default function ContactClient() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Phone Number</p>
-                    <p className="text-lg font-bold text-gray-900">+91 9272547817</p>
+                    <p suppressHydrationWarning className="text-lg font-bold text-gray-900">+91 9272547817</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">

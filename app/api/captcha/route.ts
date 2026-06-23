@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { generateCaptchaText, generateCaptchaSvg } from "@/lib/captcha";
 
+export const dynamic = "force-dynamic";
+
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_captcha";
 
 export async function GET() {
