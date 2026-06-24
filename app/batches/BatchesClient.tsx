@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, CheckCircle, Clock, Users, ArrowRight, Download, PlayCircle, HelpCircle, ChevronDown, X } from "lucide-react";
 import EnquiryForm from "../_components/EnquiryForm";
+import BannerSlider, { Banner } from "../_components/BannerSlider";
 
 const WHATSAPP_NUMBER = "919272547817";
 
@@ -65,15 +66,17 @@ type Course = {
   next_batch_starts?: string | null;
   fees?: string | number | null;
   discount_percent?: string | number | null;
-  fee_plans?: Array<{ id: number; duration: string; fees: string | number; discount_percent: string | number }> | null;
+  fee_plans?: Array<{ id: number; duration: string; fees: string | number; discount_percent: string | number; mode_of_learning?: string | null }> | null;
   ranking?: number | null;
   syllabus_pdf?: string | null;
+  mode_of_learning?: string | null;
 };
 
 interface BatchesClientProps {
   videos: Video[];
   faqs: Faq[];
   courses: Course[];
+  banners: Banner[];
 }
 
 function youtubeIdFromUrl(url: string): string {
@@ -125,7 +128,18 @@ function formatIndianCurrency(value: number): string {
   }).format(value);
 }
 
-export default function BatchesClient({ videos, faqs, courses }: BatchesClientProps) {
+function getModeBadgeClass(mode?: string | null): string {
+  const m = String(mode || "Offline (Hybrid )").toLowerCase();
+  if (m.includes("online")) {
+    return "text-indigo-700 bg-indigo-50 border-indigo-100";
+  } else if (m.includes("recorded")) {
+    return "text-amber-700 bg-amber-50 border-amber-100";
+  } else {
+    return "text-emerald-700 bg-emerald-50 border-emerald-100";
+  }
+}
+
+export default function BatchesClient({ videos, faqs, courses, banners }: BatchesClientProps) {
   const [openSyllabusKey, setOpenSyllabusKey] = useState<string | null>(null);
   const [openFaqKey, setOpenFaqKey] = useState<string | null>(null);
   const videosStripRef = useRef<HTMLDivElement | null>(null);
@@ -218,6 +232,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
       feePlans: c.fee_plans || [],
       ranking: c.ranking ?? 0,
       syllabus_pdf: c.syllabus_pdf ?? null,
+      mode_of_learning: c.mode_of_learning || "Offline (Hybrid )",
     }));
 
     return [...dbBatches].sort((a, b) => {
@@ -307,14 +322,7 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Banner */}
         <div className="mb-6 md:mb-10 rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-lg border-4 border-white">
-          <picture>
-            <source media="(max-width: 767px)" srcSet="/assets/photos/batch2.webp" />
-            <img
-              src="/assets/photos/batch.webp"
-              alt="RankersHub Batches"
-              className="w-full h-auto object-cover"
-            />
-          </picture>
+          <BannerSlider banners={banners} alt="RankersHub Batches Banner" />
         </div>
 
         {/* Header */}
@@ -370,9 +378,14 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                         {batch.fees && batch.fees > 0 && (
                           <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-emerald-100 flex flex-col justify-between shadow-sm">
                             <div>
-                              <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">
-                                {batch.duration ? `${batch.duration} Plan` : "Base Program"}
-                              </span>
+                              <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                                <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">
+                                  {batch.duration ? `${batch.duration} Plan` : "Base Program"}
+                                </span>
+                                <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getModeBadgeClass(batch.mode_of_learning)}`}>
+                                  {batch.mode_of_learning || "Offline (Hybrid )"}
+                                </span>
+                              </div>
                               <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
                                 <span className="text-xl font-black text-emerald-900">
                                   ₹{formatIndianCurrency(Math.max(0, batch.fees - (batch.fees * Math.min(batch.discountPercent || 0, 100)) / 100))}
@@ -398,7 +411,12 @@ export default function BatchesClient({ videos, faqs, courses }: BatchesClientPr
                           return (
                             <div key={plan.id} className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-emerald-100 flex flex-col justify-between shadow-sm">
                               <div>
-                                <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">{plan.duration} Plan</span>
+                                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                                  <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">{plan.duration} Plan</span>
+                                  <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getModeBadgeClass(plan.mode_of_learning)}`}>
+                                    {plan.mode_of_learning || "Offline (Hybrid )"}
+                                  </span>
+                                </div>
                                 <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
                                   <span className="text-xl font-black text-emerald-900">₹{formatIndianCurrency(planFinal)}</span>
                                   {planDiscount > 0 && (

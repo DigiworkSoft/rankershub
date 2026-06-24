@@ -12,7 +12,19 @@ type FeePlan = {
   duration: string;
   fees: string | number;
   discount_percent: string | number;
+  mode_of_learning?: string | null;
 };
+
+function getModeBadgeClass(mode?: string | null): string {
+  const m = String(mode || "Offline (Hybrid )").toLowerCase();
+  if (m.includes("online")) {
+    return "text-indigo-700 bg-indigo-50 border-indigo-100";
+  } else if (m.includes("recorded")) {
+    return "text-amber-700 bg-amber-50 border-amber-100";
+  } else {
+    return "text-emerald-700 bg-emerald-50 border-emerald-100";
+  }
+}
 
 export default function FeePlansSection() {
   const [plans, setPlans] = useState<FeePlan[]>([]);
@@ -84,9 +96,14 @@ export default function FeePlansSection() {
                   )}
 
                   <div>
-                    <span className="text-sm uppercase tracking-widest text-primary font-bold">
-                      {plan.course_title || "General"} Program
-                    </span>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm uppercase tracking-widest text-primary font-bold">
+                        {plan.course_title || "General"} Program
+                      </span>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getModeBadgeClass(plan.mode_of_learning)}`}>
+                        {plan.mode_of_learning || "Offline (Hybrid )"}
+                      </span>
+                    </div>
                     <h3 className="text-3xl font-extrabold text-gray-900 mt-2 mb-6">
                       {plan.duration} Plan
                     </h3>

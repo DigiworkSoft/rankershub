@@ -35,6 +35,10 @@ export async function GET(request: Request) {
     const popupCount = await query("SELECT COUNT(*)::int AS count FROM popups");
     const totalPopups = popupCount.rows[0]?.count || 0;
 
+    // 7. Total Banners
+    const bannerCount = await query("SELECT COUNT(*)::int AS count FROM banners");
+    const totalBanners = bannerCount.rows[0]?.count || 0;
+
     // 7. Enquiries by Batch/Course
     const batchDistribution = await query(`
       SELECT COALESCE(batch, 'Unspecified') AS label, COUNT(*)::int AS count 
@@ -111,13 +115,13 @@ export async function GET(request: Request) {
         courses: totalCourses,
         blogs: totalBlogs,
         faqs: totalFaqs,
-        popups: totalPopups
+        popups: totalPopups,
+        banners: totalBanners
       },
       distribution: formattedDistribution,
       trend: trendData
     });
   } catch (err: any) {
-    console.error("Dashboard stats error:", err);
     return NextResponse.json({ error: "Failed to fetch dashboard statistics", details: err?.message }, { status: 500 });
   }
 }

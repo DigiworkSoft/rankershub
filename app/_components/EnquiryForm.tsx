@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
-import { Send } from "lucide-react";
+import { Send, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function EnquiryForm() {
@@ -157,15 +157,22 @@ export default function EnquiryForm() {
         </div>
         <div>
           <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Interested Batch</label>
-          <select
-            value={formData.batch}
-            onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none bg-white"
-          >
-            {batches.map((batchName) => (
-              <option key={batchName} value={batchName}>{batchName}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={formData.batch}
+              onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
+              className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none bg-white appearance-none cursor-pointer truncate text-sm"
+            >
+              {batches.map((batchName) => (
+                <option key={batchName} value={batchName}>
+                  {batchName.length > 30 ? batchName.slice(0, 30) + "..." : batchName}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+              <ChevronDown className="w-5 h-5" />
+            </div>
+          </div>
         </div>
         <div>
           <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Message (Optional)</label>

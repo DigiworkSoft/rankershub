@@ -9,20 +9,60 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { question, answer, category } = await request.json();
+    const body = await request.json();
 
-    if (!question || !answer || !category) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (Array.isArray(body)) {
+      const results = [];
+      for (const item of body) {
+        const { question, answer, category, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm } = item;
+        if (!question || !answer || !category) {
+          continue;
+        }
+        const res = await query(
+          `INSERT INTO faqs (question, answer, category, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+          [
+            question,
+            answer,
+            category,
+            meta_title || null,
+            meta_description || null,
+            geo_region || null,
+            geo_placename || null,
+            geo_position || null,
+            icbm || null
+          ]
+        );
+        results.push(res.rows[0].id);
+      }
+      return NextResponse.json({ success: true, ids: results }, { status: 201 });
+    } else {
+      const { question, answer, category, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm } = body;
+
+      if (!question || !answer || !category) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
+
+      const result = await query(
+        `INSERT INTO faqs (question, answer, category, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        [
+          question,
+          answer,
+          category,
+          meta_title || null,
+          meta_description || null,
+          geo_region || null,
+          geo_placename || null,
+          geo_position || null,
+          icbm || null
+        ]
+      );
+
+      return NextResponse.json({ success: true, id: result.rows[0].id }, { status: 201 });
     }
-
-    const result = await query(
-      "INSERT INTO faqs (question, answer, category) VALUES ($1, $2, $3) RETURNING id",
-      [question, answer, category]
-    );
-
-    return NextResponse.json({ success: true, id: result.rows[0].id }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Failed to create FAQ" }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to create FAQ", details: err?.message }, { status: 500 });
   }
 }
 
@@ -55,15 +95,28 @@ export async function PUT(request: Request) {
   if (!id) return NextResponse.json({ error: "Missing faq id" }, { status: 400 });
 
   try {
-    const { question, answer, category } = await request.json();
+    const { question, answer, category, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm } = await request.json();
 
     if (!question || !answer || !category) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const result = await query(
-      "UPDATE faqs SET question = $1, answer = $2, category = $3 WHERE id = $4 RETURNING *",
-      [question, answer, category, Number(id)]
+      `UPDATE faqs 
+       SET question = $1, answer = $2, category = $3, meta_title = $4, meta_description = $5, geo_region = $6, geo_placename = $7, geo_position = $8, icbm = $9 
+       WHERE id = $10 RETURNING *`,
+      [
+        question,
+        answer,
+        category,
+        meta_title || null,
+        meta_description || null,
+        geo_region || null,
+        geo_placename || null,
+        geo_position || null,
+        icbm || null,
+        Number(id)
+      ]
     );
 
     if (result.rowCount === 0) {
@@ -71,8 +124,8 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ success: true, faq: result.rows[0] });
-  } catch {
-    return NextResponse.json({ error: "Failed to update FAQ" }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to update FAQ", details: err?.message }, { status: 500 });
   }
 }
 

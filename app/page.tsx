@@ -9,6 +9,10 @@ import RelatedBlogsAutoScroll from "./_components/RelatedBlogsAutoScroll";
 import OurCoursesSection from "./_components/OurCoursesSection";
 // import FeePlansSection from "./_components/FeePlansSection";
 import PopupDisplay from "./_components/PopupDisplay";
+import { query } from "@/lib/db";
+import BannerSlider from "./_components/BannerSlider";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "RankersHub — Best Commerce Classes in Pune",
@@ -37,16 +41,23 @@ const features = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  let banners: any[] = [];
+  try {
+    const bannersResult = await query(
+      "SELECT * FROM banners WHERE page = 'index' AND is_active = TRUE ORDER BY ranking ASC, created_at DESC"
+    );
+    banners = bannersResult.rows;
+  } catch {
+    // silently ignore banner fetch errors
+  }
+
   return (
     <div className="pt-2 md:pt-6">
       {/* Top Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-1 md:mt-3 mb-1 md:mb-0">
         <div className="rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
-          <picture>
-            <source media="(max-width: 768px)" srcSet="/assets/photos/banner2.webp" />
-            <img src="/assets/photos/banner.webp" alt="Rankershub Banner" className="w-full h-auto object-cover" />
-          </picture>
+          <BannerSlider banners={banners} alt="RankersHub Homepage Banner" />
         </div>
       </section>
 

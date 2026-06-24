@@ -13,11 +13,27 @@ export async function generateMetadata({ params }: Params) {
     const { id } = await params;
     const blogId = Number(id);
     
-    const result = await query("SELECT title, content FROM blogs WHERE id = $1 AND published_at <= NOW()", [blogId]);
+    const result = await query("SELECT * FROM blogs WHERE id = $1 AND published_at <= NOW()", [blogId]);
     const blog = result.rows[0];
 
     if (!blog) return { title: "Article Not Found" };
-    return { title: `${blog.title} | RankersHub`, description: blog.content.slice(0, 160) };
+    
+    const title = blog.meta_title || `${blog.title} | RankersHub`;
+    const description = blog.meta_description || blog.content.replace(/<[^>]*>/g, " ").slice(0, 160);
+    const keywords = blog.meta_keywords || "";
+
+    const otherTags: Record<string, string> = {};
+    if (blog.geo_region) otherTags["geo.region"] = blog.geo_region;
+    if (blog.geo_placename) otherTags["geo.placename"] = blog.geo_placename;
+    if (blog.geo_position) otherTags["geo.position"] = blog.geo_position;
+    if (blog.icbm) otherTags["ICBM"] = blog.icbm;
+
+    return {
+        title,
+        description,
+        keywords,
+        other: otherTags,
+    };
 }
 
 export default async function BlogArticlePage({ params }: Params) {
@@ -36,6 +52,25 @@ export default async function BlogArticlePage({ params }: Params) {
     );
     const relatedBlogs = relatedResult.rows;
     const formattedContentHtml = formatBlogContentToHtml(blog.content);
+
+    if (blog.bypass_layout) {
+      return (
+        <section className="min-h-screen bg-white">
+          <style dangerouslySetInnerHTML={{ __html: `
+            nav, footer, .edu-paper-bg, .edu-notebook-lines, .edu-margin-line, .edu-symbol, .bg-orb {
+              display: none !important;
+            }
+            main {
+              padding: 0 !important;
+              margin: 0 !important;
+              max-width: 100% !important;
+              width: 100% !important;
+            }
+          ` }} />
+          <div dangerouslySetInnerHTML={{ __html: formattedContentHtml }} />
+        </section>
+      );
+    }
 
     const wordCount = String(blog.content || "").trim().split(/\s+/).filter(Boolean).length;
     const readTime = Math.max(1, Math.ceil(wordCount / 200));

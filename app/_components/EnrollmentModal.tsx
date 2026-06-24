@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send } from "lucide-react";
+import { X, Send, ChevronDown } from "lucide-react";
 
 interface EnrollmentModalProps {
   isOpen: boolean;
@@ -268,19 +268,26 @@ export default function EnrollmentModal({
                   <label htmlFor="enroll-course" className="block text-sm font-semibold text-gray-700 mb-1.5">
                     Course <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    id="enroll-course"
-                    name="course"
-                    required
-                    value={formData.course}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm appearance-none cursor-pointer"
-                  >
-                    <option value="" disabled>Select a course</option>
-                    {courses.map((courseName) => (
-                      <option key={courseName} value={courseName}>{courseName}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="enroll-course"
+                      name="course"
+                      required
+                      value={formData.course}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm appearance-none cursor-pointer truncate"
+                    >
+                      <option value="" disabled>Select a course</option>
+                      {courses.map((courseName) => (
+                        <option key={courseName} value={courseName}>
+                          {courseName.length > 30 ? courseName.slice(0, 30) + "..." : courseName}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                      <ChevronDown className="w-5 h-5" />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Message */}

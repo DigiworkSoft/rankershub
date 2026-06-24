@@ -135,6 +135,15 @@ export async function POST(request: Request) {
     const tagsRaw = formData.get("tags");
     const publishedAtRaw = formData.get("published_at") ? String(formData.get("published_at")).trim() : null;
 
+    const metaTitle = formData.get("meta_title") ? String(formData.get("meta_title")).trim() : null;
+    const metaDescription = formData.get("meta_description") ? String(formData.get("meta_description")).trim() : null;
+    const metaKeywords = formData.get("meta_keywords") ? String(formData.get("meta_keywords")).trim() : null;
+    const geoRegion = formData.get("geo_region") ? String(formData.get("geo_region")).trim() : null;
+    const geoPlacename = formData.get("geo_placename") ? String(formData.get("geo_placename")).trim() : null;
+    const geoPosition = formData.get("geo_position") ? String(formData.get("geo_position")).trim() : null;
+    const icbm = formData.get("icbm") ? String(formData.get("icbm")).trim() : null;
+    const bypassLayout = formData.get("bypass_layout") === "true";
+
     let tags: string[] = [];
     if (tagsRaw) {
       try {
@@ -177,8 +186,8 @@ export async function POST(request: Request) {
 
     // Insert into PostgreSQL
     const result = await query(
-      "INSERT INTO blogs (title, content, author, image_url, tags, published_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [title, content, author, image_url, tags, publishedAt]
+      "INSERT INTO blogs (title, content, author, image_url, tags, published_at, meta_title, meta_description, meta_keywords, geo_region, geo_placename, geo_position, icbm, bypass_layout) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *",
+      [title, content, author, image_url, tags, publishedAt, metaTitle, metaDescription, metaKeywords, geoRegion, geoPlacename, geoPosition, icbm, bypassLayout]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
@@ -208,6 +217,15 @@ export async function PUT(request: Request) {
     const author = String(formData.get("author") ?? "Admin").trim() || "Admin";
     const tagsRaw = formData.get("tags");
     const publishedAtRaw = formData.get("published_at") ? String(formData.get("published_at")).trim() : null;
+
+    const metaTitle = formData.get("meta_title") ? String(formData.get("meta_title")).trim() : null;
+    const metaDescription = formData.get("meta_description") ? String(formData.get("meta_description")).trim() : null;
+    const metaKeywords = formData.get("meta_keywords") ? String(formData.get("meta_keywords")).trim() : null;
+    const geoRegion = formData.get("geo_region") ? String(formData.get("geo_region")).trim() : null;
+    const geoPlacename = formData.get("geo_placename") ? String(formData.get("geo_placename")).trim() : null;
+    const geoPosition = formData.get("geo_position") ? String(formData.get("geo_position")).trim() : null;
+    const icbm = formData.get("icbm") ? String(formData.get("icbm")).trim() : null;
+    const bypassLayout = formData.get("bypass_layout") === "true";
 
     let tags: string[] = [];
     if (tagsRaw) {
@@ -254,8 +272,8 @@ export async function PUT(request: Request) {
     }
 
     const result = await query(
-      "UPDATE blogs SET title = $1, content = $2, author = $3, image_url = $4, tags = $5, published_at = $6 WHERE id = $7 RETURNING *",
-      [title, content, author, image_url, tags, publishedAt, Number(id)]
+      "UPDATE blogs SET title = $1, content = $2, author = $3, image_url = $4, tags = $5, published_at = $6, meta_title = $7, meta_description = $8, meta_keywords = $9, geo_region = $10, geo_placename = $11, geo_position = $12, icbm = $13, bypass_layout = $14 WHERE id = $15 RETURNING *",
+      [title, content, author, image_url, tags, publishedAt, metaTitle, metaDescription, metaKeywords, geoRegion, geoPlacename, geoPosition, icbm, bypassLayout, Number(id)]
     );
 
     return NextResponse.json(result.rows[0]);

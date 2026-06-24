@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     let discountRaw = "";
     let feePlansRaw = "[]";
     let rankingRaw = "0";
+    let modeOfLearning = "Offline (Hybrid )";
     let file: File | null = null;
     let syllabusFile: File | null = null;
     let jsonSyllabusPdf: string | null = null;
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
       feePlansRaw = JSON.stringify(body.fee_plans ?? []);
       rankingRaw = body.ranking !== undefined ? String(body.ranking) : "0";
       jsonSyllabusPdf = body.syllabus_pdf !== undefined ? String(body.syllabus_pdf) : null;
+      modeOfLearning = String(body.mode_of_learning ?? "Offline (Hybrid )");
     } else {
       const formData = await request.formData();
       title = String(formData.get("title") ?? formData.get("course_name") ?? "");
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
       rankingRaw = String(formData.get("ranking") ?? "0").trim();
       file = formData.get("image") as File | null;
       syllabusFile = formData.get("syllabus_pdf") as File | null;
+      modeOfLearning = String(formData.get("mode_of_learning") ?? "Offline (Hybrid )");
     }
 
     const fees = feesRaw ? Number(feesRaw) : null;
@@ -104,10 +107,10 @@ export async function POST(request: Request) {
 
     // Insert into PostgreSQL
     const result = await query(
-      `INSERT INTO courses (title, description, image_url, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent, ranking, syllabus_pdf)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO courses (title, description, image_url, duration, timing, benefits, syllabus, syllabus_details, next_batch_starts, fees, discount_percent, ranking, syllabus_pdf, mode_of_learning)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id`,
-      [title, description, image_url, duration, timing, benefits, syllabus, syllabusDetails, nextBatchStarts, fees, discountPercent, ranking, syllabus_pdf]
+      [title, description, image_url, duration, timing, benefits, syllabus, syllabusDetails, nextBatchStarts, fees, discountPercent, ranking, syllabus_pdf, modeOfLearning]
     );
 
     const courseId = result.rows[0].id;
@@ -129,11 +132,11 @@ export async function POST(request: Request) {
           const planFees = Number(plan.fees || 0);
           const planDiscount = Number(plan.discount_percent || 0);
           await query(
-            `INSERT INTO fee_plans (course_id, duration, fees, discount_percent)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (course_id, duration) DO UPDATE
+            `INSERT INTO fee_plans (course_id, duration, fees, discount_percent, mode_of_learning)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (course_id, duration, mode_of_learning) DO UPDATE
              SET fees = EXCLUDED.fees, discount_percent = EXCLUDED.discount_percent`,
-            [courseId, String(plan.duration), planFees, planDiscount]
+            [courseId, String(plan.duration), planFees, planDiscount, plan.mode_of_learning || 'Offline (Hybrid )']
           );
         }
       }
@@ -169,6 +172,7 @@ export async function PUT(request: Request) {
     let discountRaw = "";
     let feePlansRaw = "[]";
     let rankingRaw = "0";
+    let modeOfLearning = "Offline (Hybrid )";
     let file: File | null = null;
     let syllabusFile: File | null = null;
     let jsonSyllabusPdf: string | null = null;
@@ -191,6 +195,7 @@ export async function PUT(request: Request) {
       rankingRaw = body.ranking !== undefined ? String(body.ranking) : "0";
       jsonSyllabusPdf = body.syllabus_pdf !== undefined ? String(body.syllabus_pdf) : null;
       removeSyllabusPdf = body.remove_syllabus_pdf === true;
+      modeOfLearning = String(body.mode_of_learning ?? "Offline (Hybrid )");
     } else {
       const formData = await request.formData();
       title = String(formData.get("title") ?? formData.get("course_name") ?? "");
@@ -208,6 +213,7 @@ export async function PUT(request: Request) {
       file = formData.get("image") as File | null;
       syllabusFile = formData.get("syllabus_pdf") as File | null;
       removeSyllabusPdf = formData.get("remove_syllabus_pdf") === "true";
+      modeOfLearning = String(formData.get("mode_of_learning") ?? "Offline (Hybrid )");
     }
 
     const fees = feesRaw ? Number(feesRaw) : null;
@@ -284,9 +290,10 @@ export async function PUT(request: Request) {
            fees = $10,
            discount_percent = $11,
            ranking = $12,
-           syllabus_pdf = $13
-       WHERE id = $14`,
-      [title, description, image_url, duration, timing, benefits, syllabus, syllabusDetails, nextBatchStarts, fees, discountPercent, ranking, syllabus_pdf, Number(id)]
+           syllabus_pdf = $13,
+           mode_of_learning = $14
+       WHERE id = $15`,
+      [title, description, image_url, duration, timing, benefits, syllabus, syllabusDetails, nextBatchStarts, fees, discountPercent, ranking, syllabus_pdf, modeOfLearning, Number(id)]
     );
 
     // Delete old fee plans and insert the updated list
@@ -298,9 +305,9 @@ export async function PUT(request: Request) {
           const planFees = Number(plan.fees || 0);
           const planDiscount = Number(plan.discount_percent || 0);
           await query(
-            `INSERT INTO fee_plans (course_id, duration, fees, discount_percent)
-             VALUES ($1, $2, $3, $4)`,
-            [Number(id), String(plan.duration), planFees, planDiscount]
+            `INSERT INTO fee_plans (course_id, duration, fees, discount_percent, mode_of_learning)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [Number(id), String(plan.duration), planFees, planDiscount, plan.mode_of_learning || 'Offline (Hybrid )']
           );
         }
       }

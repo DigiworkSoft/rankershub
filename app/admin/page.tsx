@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Book, FileText, Trash2, RefreshCw, Edit, X, Maximize, ExternalLink, Search, ChevronDown, ChevronRight, Menu, MessageSquare, HelpCircle, Layers, LayoutDashboard, BookOpen, Eye, EyeOff } from "lucide-react";
+import { Book, FileText, Trash2, RefreshCw, Edit, X, Maximize, ExternalLink, Search, ChevronDown, ChevronRight, Menu, MessageSquare, HelpCircle, Layers, LayoutDashboard, BookOpen, Eye, EyeOff, Link2, Image } from "lucide-react";
 import RichTextEditor from "./_components/RichTextEditor";
 import { PRESET_BLOG_TAGS } from "@/lib/blog-tags";
 
@@ -51,7 +51,21 @@ export default function AdminPage() {
     blogs: true,
     faqs: true,
     popups: true,
+    resources: true,
+    banners: true,
   });
+
+  const [banners, setBanners] = useState<any[]>([]);
+  const [editingBanner, setEditingBanner] = useState<any | null>(null);
+  const [bannerForm, setBannerForm] = useState({
+    title: "",
+    page: "index",
+    ranking: "0",
+    is_active: "true",
+    desktop_file: null as File | null,
+    mobile_file: null as File | null,
+  });
+  const [bannerSubmitting, setBannerSubmitting] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
   const toggleSection = (section: string) => {
@@ -143,16 +157,17 @@ export default function AdminPage() {
     next_batch_starts: "",
     description: "",
     file: null as File | null,
-    fee_plans: [] as Array<{ duration: string; fees: string; discount_percent: string }>,
+    fee_plans: [] as Array<{ duration: string; fees: string; discount_percent: string; mode_of_learning: string }>,
     ranking: "0",
     syllabus_pdf: null as File | null,
+    mode_of_learning: "Offline (Hybrid )",
   });
   const [removeSyllabusPdf, setRemoveSyllabusPdf] = useState(false);
 
   const addFeePlanRow = () => {
     setCourseForm((prev) => ({
       ...prev,
-      fee_plans: [...prev.fee_plans, { duration: "", fees: "", discount_percent: "" }],
+      fee_plans: [...prev.fee_plans, { duration: "", fees: "", discount_percent: "", mode_of_learning: "Offline (Hybrid )" }],
     }));
   };
 
@@ -163,16 +178,85 @@ export default function AdminPage() {
     }));
   };
 
-  const changeFeePlanRow = (index: number, field: "duration" | "fees" | "discount_percent", value: string) => {
+  const changeFeePlanRow = (index: number, field: "duration" | "fees" | "discount_percent" | "mode_of_learning", value: string) => {
     setCourseForm((prev) => ({
       ...prev,
       fee_plans: prev.fee_plans.map((plan, idx) => (idx === index ? { ...plan, [field]: value } : plan)),
     }));
   };
 
-  const [blogForm, setBlogForm] = useState<{ title: string; content: string; author: string; tags: string[]; file: File | null; published_at: string }>({ title: "", content: "", author: "Admin", tags: [], file: null, published_at: "" });
-  const [faqForm, setFaqForm] = useState({ question: "", answer: "", category: "Admission FAQs" });
+  const [blogForm, setBlogForm] = useState<{
+    title: string;
+    content: string;
+    author: string;
+    tags: string[];
+    file: File | null;
+    published_at: string;
+    meta_title: string;
+    meta_description: string;
+    meta_keywords: string;
+    geo_region: string;
+    geo_placename: string;
+    geo_position: string;
+    icbm: string;
+    bypass_layout: boolean;
+  }>({
+    title: "",
+    content: "",
+    author: "Admin",
+    tags: [],
+    file: null,
+    published_at: "",
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+    geo_region: "",
+    geo_placename: "",
+    geo_position: "",
+    icbm: "",
+    bypass_layout: false,
+  });
+  const [faqForm, setFaqForm] = useState({
+    question: "",
+    answer: "",
+    category: "Admission FAQs",
+    meta_title: "",
+    meta_description: "",
+    geo_region: "",
+    geo_placename: "",
+    geo_position: "",
+    icbm: "",
+  });
   const [customTagInput, setCustomTagInput] = useState("");
+
+  const [resourceCategories, setResourceCategories] = useState<any[]>([]);
+  const [resourceLinks, setResourceLinks] = useState<any[]>([]);
+  const [resourceLoading, setResourceLoading] = useState(false);
+
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editingLink, setEditingLink] = useState<any | null>(null);
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    ranking: "0",
+  });
+
+  const [linkForm, setLinkForm] = useState({
+    category_id: "",
+    title: "",
+    url: "",
+    group_name: "",
+    ranking: "0",
+    content: "",
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+    geo_region: "",
+    geo_placename: "",
+    geo_position: "",
+    icbm: "",
+    bypass_layout: false,
+  });
 
   const availableBlogTags = useMemo(() => {
     const merged = new Set<string>(PRESET_BLOG_TAGS);
@@ -261,6 +345,22 @@ export default function AdminPage() {
     setPopups(Array.isArray(data) ? data : []);
   };
 
+  const fetchResources = async () => {
+    setResourceLoading(true);
+    try {
+      const res = await authedFetch("/api/admin/resources");
+      if (res.ok) {
+        const data = await res.json();
+        setResourceCategories(data.categories || []);
+        setResourceLinks(data.links || []);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setResourceLoading(false);
+    }
+  };
+
   const fetchStats = async () => {
     setStatsLoading(true);
     try {
@@ -297,6 +397,8 @@ export default function AdminPage() {
     if (activeTab === "courses") fetchCourses();
     if (activeTab === "faqs") fetchFaqs();
     if (activeTab === "popups") fetchPopups();
+    if (activeTab === "resources") fetchResources();
+    if (activeTab === "banners") fetchBanners();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
 
@@ -311,6 +413,130 @@ export default function AdminPage() {
       document.body.style.overflow = "";
     };
   }, [isEditorFullScreen]);
+
+  const fetchBanners = async () => {
+    try {
+      const res = await authedFetch("/api/admin/banners");
+      if (res.ok) {
+        const data = await res.json();
+        setBanners(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handleBannerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bannerForm.title) {
+      alert("Title is required");
+      return;
+    }
+    if (!editingBanner && (!bannerForm.desktop_file || !bannerForm.mobile_file)) {
+      alert("Both desktop and mobile banner images are required");
+      return;
+    }
+
+    setBannerSubmitting(true);
+    const formData = new FormData();
+    formData.append("title", bannerForm.title);
+    formData.append("page", bannerForm.page);
+    formData.append("ranking", bannerForm.ranking);
+    formData.append("is_active", bannerForm.is_active);
+    if (bannerForm.desktop_file) {
+      formData.append("desktop_image", bannerForm.desktop_file);
+    }
+    if (bannerForm.mobile_file) {
+      formData.append("mobile_image", bannerForm.mobile_file);
+    }
+
+    try {
+      const url = editingBanner ? `/api/admin/banners?id=${editingBanner.id}` : "/api/admin/banners";
+      const method = editingBanner ? "PUT" : "POST";
+      const res = await authedFetch(url, {
+        method,
+        body: formData,
+      });
+
+      if (res.ok) {
+        alert(editingBanner ? "Banner updated successfully" : "Banner created successfully");
+        cancelBannerEdit();
+        fetchBanners();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Failed to save banner");
+      }
+    } catch (_err) {
+      alert("An error occurred while saving the banner");
+    } finally {
+      setBannerSubmitting(false);
+    }
+  };
+
+  const handleEditBanner = (banner: any) => {
+    setEditingBanner(banner);
+    setBannerForm({
+      title: banner.title,
+      page: banner.page,
+      ranking: String(banner.ranking),
+      is_active: String(banner.is_active),
+      desktop_file: null,
+      mobile_file: null,
+    });
+    setTimeout(() => document.getElementById('add-banner-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
+  const cancelBannerEdit = () => {
+    setEditingBanner(null);
+    setBannerForm({
+      title: "",
+      page: "index",
+      ranking: "0",
+      is_active: "true",
+      desktop_file: null,
+      mobile_file: null,
+    });
+  };
+
+  const handleDeleteBanner = async (id: number) => {
+    if (confirmDelete?.type === "banner" && confirmDelete.id === id) {
+      try {
+        const res = await authedFetch(`/api/admin/banners?id=${id}`, { method: "DELETE" });
+        if (res.ok) {
+          setConfirmDelete(null);
+          fetchBanners();
+        } else {
+          alert("Failed to delete banner");
+        }
+      } catch (_err) {
+        alert("Failed to delete banner");
+      }
+    } else {
+      setConfirmDelete({ type: "banner", id });
+    }
+  };
+
+  const handleToggleBannerActive = async (banner: any) => {
+    try {
+      const formData = new FormData();
+      formData.append("title", banner.title);
+      formData.append("page", banner.page);
+      formData.append("ranking", String(banner.ranking));
+      formData.append("is_active", String(!banner.is_active));
+
+      const res = await authedFetch(`/api/admin/banners?id=${banner.id}`, {
+        method: "PUT",
+        body: formData,
+      });
+      if (res.ok) {
+        fetchBanners();
+      } else {
+        alert("Failed to toggle status");
+      }
+    } catch {
+      alert("Failed to toggle status");
+    }
+  };
 
   const handleCourseUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,6 +565,7 @@ export default function AdminPage() {
     formData.append("next_batch_starts", courseForm.next_batch_starts);
     formData.append("fee_plans", JSON.stringify(courseForm.fee_plans || []));
     formData.append("ranking", String(rankingVal));
+    formData.append("mode_of_learning", courseForm.mode_of_learning || "Offline (Hybrid )");
     if (courseForm.file) formData.append("image", courseForm.file);
     if (courseForm.syllabus_pdf) formData.append("syllabus_pdf", courseForm.syllabus_pdf);
     if (removeSyllabusPdf) formData.append("remove_syllabus_pdf", "true");
@@ -365,6 +592,7 @@ export default function AdminPage() {
           fee_plans: [],
           ranking: "0",
           syllabus_pdf: null,
+          mode_of_learning: "Offline (Hybrid )",
         });
         setRemoveSyllabusPdf(false);
         setEditingCourse(null);
@@ -395,12 +623,14 @@ export default function AdminPage() {
         duration: p.duration || "",
         fees: p.fees != null ? String(p.fees) : "",
         discount_percent: p.discount_percent != null ? String(p.discount_percent) : "",
+        mode_of_learning: p.mode_of_learning || "Offline (Hybrid )",
       })) : [],
       ranking: course.ranking != null ? String(course.ranking) : "0",
       syllabus_pdf: null,
+      mode_of_learning: course.mode_of_learning || "Offline (Hybrid )",
     });
     setRemoveSyllabusPdf(false);
-    window.scrollTo(0, 0);
+    setTimeout(() => document.getElementById('add-batch-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
   const cancelCourseEdit = () => {
@@ -420,6 +650,7 @@ export default function AdminPage() {
       fee_plans: [],
       ranking: "0",
       syllabus_pdf: null,
+      mode_of_learning: "Offline (Hybrid )",
     });
     setRemoveSyllabusPdf(false);
   };
@@ -469,6 +700,14 @@ export default function AdminPage() {
     if (blogForm.published_at) {
       formData.append("published_at", new Date(blogForm.published_at).toISOString());
     }
+    formData.append("meta_title", blogForm.meta_title || "");
+    formData.append("meta_description", blogForm.meta_description || "");
+    formData.append("meta_keywords", blogForm.meta_keywords || "");
+    formData.append("geo_region", blogForm.geo_region || "");
+    formData.append("geo_placename", blogForm.geo_placename || "");
+    formData.append("geo_position", blogForm.geo_position || "");
+    formData.append("icbm", blogForm.icbm || "");
+    formData.append("bypass_layout", String(blogForm.bypass_layout));
 
     const url = editingBlog ? `/api/admin/blogs?id=${editingBlog.id}` : "/api/admin/blogs";
     const method = editingBlog ? "PUT" : "POST";
@@ -479,7 +718,22 @@ export default function AdminPage() {
       if (res.ok) {
         await res.json();
         alert(`Blog ${editingBlog ? "updated" : "published"} successfully`);
-        setBlogForm({ title: "", content: "", author: "Admin", tags: [], file: null, published_at: "" });
+        setBlogForm({
+          title: "",
+          content: "",
+          author: "Admin",
+          tags: [],
+          file: null,
+          published_at: "",
+          meta_title: "",
+          meta_description: "",
+          meta_keywords: "",
+          geo_region: "",
+          geo_placename: "",
+          geo_position: "",
+          icbm: "",
+          bypass_layout: false,
+        });
         setCustomTagInput("");
         setEditingBlog(null);
         setIsEditorFullScreen(false);
@@ -505,13 +759,36 @@ export default function AdminPage() {
       tags: blog.tags || [],
       file: null,
       published_at: formatDateTimeLocal(blog.published_at),
+      meta_title: blog.meta_title || "",
+      meta_description: blog.meta_description || "",
+      meta_keywords: blog.meta_keywords || "",
+      geo_region: blog.geo_region || "",
+      geo_placename: blog.geo_placename || "",
+      geo_position: blog.geo_position || "",
+      icbm: blog.icbm || "",
+      bypass_layout: !!blog.bypass_layout,
     });
-    window.scrollTo(0, 0);
+    setTimeout(() => document.getElementById('add-blog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
   const handleCancelEdit = () => {
     setEditingBlog(null);
-    setBlogForm({ title: "", content: "", author: "Admin", tags: [], file: null, published_at: "" });
+    setBlogForm({
+      title: "",
+      content: "",
+      author: "Admin",
+      tags: [],
+      file: null,
+      published_at: "",
+      meta_title: "",
+      meta_description: "",
+      meta_keywords: "",
+      geo_region: "",
+      geo_placename: "",
+      geo_position: "",
+      icbm: "",
+      bypass_layout: false,
+    });
     setCustomTagInput("");
     setIsEditorFullScreen(false);
     setBlogValidationError("");
@@ -570,7 +847,17 @@ export default function AdminPage() {
       });
       if (res.ok) {
         alert(editingFaq ? "FAQ updated successfully" : "FAQ added successfully");
-        setFaqForm({ question: "", answer: "", category: faqForm.category });
+        setFaqForm({
+          question: "",
+          answer: "",
+          category: faqForm.category,
+          meta_title: "",
+          meta_description: "",
+          geo_region: "",
+          geo_placename: "",
+          geo_position: "",
+          icbm: "",
+        });
         setEditingFaq(null);
         fetchFaqs();
       } else throw new Error();
@@ -583,13 +870,107 @@ export default function AdminPage() {
       question: faq.question || "",
       answer: faq.answer || "",
       category: faq.category || "Admission FAQs",
+      meta_title: faq.meta_title || "",
+      meta_description: faq.meta_description || "",
+      geo_region: faq.geo_region || "",
+      geo_placename: faq.geo_placename || "",
+      geo_position: faq.geo_position || "",
+      icbm: faq.icbm || "",
     });
-    window.scrollTo(0, 0);
+    setTimeout(() => document.getElementById('add-faq-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
   const cancelFaqEdit = () => {
     setEditingFaq(null);
-    setFaqForm({ question: "", answer: "", category: "Admission FAQs" });
+    setFaqForm({
+      question: "",
+      answer: "",
+      category: "Admission FAQs",
+      meta_title: "",
+      meta_description: "",
+      geo_region: "",
+      geo_placename: "",
+      geo_position: "",
+      icbm: "",
+    });
+  };
+
+  const handleDownloadSampleFaqJson = () => {
+    const sample = [
+      {
+        category: "Admission FAQs",
+        question: "What is the duration of the CA Foundation batch?",
+        answer: "The duration is 6 months with extensive mock tests.",
+        meta_title: "CA Foundation Batch Duration FAQ",
+        meta_description: "Find out how long our CA Foundation coaching lasts and details on batch preparation.",
+        geo_region: "IN-MH",
+        geo_placename: "Pune",
+        geo_position: "18.5204;73.8567",
+        icbm: "18.5204, 73.8567"
+      },
+      {
+        category: "Syllabus FAQs",
+        question: "Is hardcopy study material provided?",
+        answer: "Yes, premium hardcopy books and notes are provided to all students.",
+        meta_title: "Study Material FAQ | RankersHub",
+        meta_description: "Learn about the physical study guides, books, and prep materials included in our classes.",
+        geo_region: "IN-MH",
+        geo_placename: "Pune",
+        geo_position: "18.5204;73.8567",
+        icbm: "18.5204, 73.8567"
+      }
+    ];
+    const blob = new Blob([JSON.stringify(sample, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "rankershub_faqs_sample.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFaqJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const content = evt.target?.result as string;
+        const parsed = JSON.parse(content);
+        if (!Array.isArray(parsed)) {
+          alert("Invalid format: JSON file must contain an array of FAQ objects.");
+          return;
+        }
+        
+        for (const item of parsed) {
+          if (!item.question || !item.answer || !item.category) {
+            alert("Validation error: Each FAQ object must contain 'question', 'answer', and 'category' fields.");
+            return;
+          }
+        }
+
+        const res = await authedFetch("/api/admin/faqs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(parsed)
+        });
+
+        if (res.ok) {
+          alert("FAQs imported successfully!");
+          fetchFaqs();
+        } else {
+          const errData = await res.json().catch(() => null);
+          alert(errData?.error || "Failed to import FAQs.");
+        }
+      } catch (err: any) {
+        alert("Failed to parse JSON file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   };
 
   const handleDeleteEnquiry = async (id: number) => {
@@ -705,7 +1086,7 @@ export default function AdminPage() {
       locations: popup.locations || [],
       file: null,
     });
-    window.scrollTo(0, 0);
+    setTimeout(() => document.getElementById('add-popup-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
   const cancelPopupEdit = () => {
@@ -731,6 +1112,187 @@ export default function AdminPage() {
       }
     } else {
       setConfirmDelete({ type: "popup", id });
+    }
+  };
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryForm.name.trim()) {
+      alert("Category name is required");
+      return;
+    }
+    const rankingVal = parseInt(categoryForm.ranking || "0", 10);
+    try {
+      const endpoint = editingCategory 
+        ? `/api/admin/resources?type=category&id=${editingCategory.id}` 
+        : "/api/admin/resources?type=category";
+      const method = editingCategory ? "PUT" : "POST";
+      const res = await authedFetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: categoryForm.name,
+          ranking: rankingVal,
+        }),
+      });
+      if (res.ok) {
+        alert(editingCategory ? "Category updated successfully" : "Category added successfully");
+        setCategoryForm({ name: "", ranking: "0" });
+        setEditingCategory(null);
+        fetchResources();
+      } else {
+        const errorData = await res.json().catch(() => null);
+        alert(errorData?.error || "Failed to save category");
+      }
+    } catch {
+      alert("Failed to save category");
+    }
+  };
+
+  const handleLinkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const titleTrimmed = linkForm.title.trim();
+    const urlTrimmed = linkForm.url.trim();
+    const contentTrimmed = linkForm.content.trim();
+    if (!linkForm.category_id || !titleTrimmed || (!urlTrimmed && !contentTrimmed)) {
+      alert("Category, title, and either URL or Page Content are required");
+      return;
+    }
+    const rankingVal = parseInt(linkForm.ranking || "0", 10);
+    try {
+      const endpoint = editingLink 
+        ? `/api/admin/resources?type=link&id=${editingLink.id}` 
+        : "/api/admin/resources?type=link";
+      const method = editingLink ? "PUT" : "POST";
+      const res = await authedFetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category_id: Number(linkForm.category_id),
+          title: titleTrimmed,
+          url: urlTrimmed || "/",
+          group_name: linkForm.group_name || null,
+          ranking: rankingVal,
+          content: contentTrimmed || null,
+          meta_title: linkForm.meta_title || null,
+          meta_description: linkForm.meta_description || null,
+          meta_keywords: linkForm.meta_keywords || null,
+          geo_region: linkForm.geo_region || null,
+          geo_placename: linkForm.geo_placename || null,
+          geo_position: linkForm.geo_position || null,
+          icbm: linkForm.icbm || null,
+          bypass_layout: linkForm.bypass_layout,
+        }),
+      });
+      if (res.ok) {
+        alert(editingLink ? "Link updated successfully" : "Link added successfully");
+        setLinkForm({
+          category_id: linkForm.category_id,
+          title: "",
+          url: "",
+          group_name: "",
+          ranking: "0",
+          content: "",
+          meta_title: "",
+          meta_description: "",
+          meta_keywords: "",
+          geo_region: "",
+          geo_placename: "",
+          geo_position: "",
+          icbm: "",
+          bypass_layout: false,
+        });
+        setEditingLink(null);
+        fetchResources();
+      } else {
+        const errorData = await res.json().catch(() => null);
+        alert(errorData?.error || "Failed to save link");
+      }
+    } catch {
+      alert("Failed to save link");
+    }
+  };
+
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setCategoryForm({
+      name: category.name || "",
+      ranking: String(category.ranking ?? "0"),
+    });
+    setTimeout(() => document.getElementById('add-category-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
+  const cancelCategoryEdit = () => {
+    setEditingCategory(null);
+    setCategoryForm({ name: "", ranking: "0" });
+  };
+
+  const handleEditLink = (link: any) => {
+    setEditingLink(link);
+    setLinkForm({
+      category_id: String(link.category_id || ""),
+      title: link.title || "",
+      url: link.url || "",
+      group_name: link.group_name || "",
+      ranking: String(link.ranking ?? "0"),
+      content: link.content || "",
+      meta_title: link.meta_title || "",
+      meta_description: link.meta_description || "",
+      meta_keywords: link.meta_keywords || "",
+      geo_region: link.geo_region || "",
+      geo_placename: link.geo_placename || "",
+      geo_position: link.geo_position || "",
+      icbm: link.icbm || "",
+      bypass_layout: !!link.bypass_layout,
+    });
+    setTimeout(() => document.getElementById('add-link-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
+  const cancelLinkEdit = () => {
+    setEditingLink(null);
+    setLinkForm({
+      category_id: "",
+      title: "",
+      url: "",
+      group_name: "",
+      ranking: "0",
+      content: "",
+      meta_title: "",
+      meta_description: "",
+      meta_keywords: "",
+      geo_region: "",
+      geo_placename: "",
+      geo_position: "",
+      icbm: "",
+      bypass_layout: false,
+    });
+  };
+
+  const handleDeleteCategory = async (id: number) => {
+    if (confirmDelete?.type === "resource_category" && confirmDelete.id === id) {
+      const res = await authedFetch(`/api/admin/resources?type=category&id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(null);
+        fetchResources();
+      } else {
+        alert("Failed to delete category");
+      }
+    } else {
+      setConfirmDelete({ type: "resource_category", id });
+    }
+  };
+
+  const handleDeleteLink = async (id: number) => {
+    if (confirmDelete?.type === "resource_link" && confirmDelete.id === id) {
+      const res = await authedFetch(`/api/admin/resources?type=link&id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(null);
+        fetchResources();
+      } else {
+        alert("Failed to delete link");
+      }
+    } else {
+      setConfirmDelete({ type: "resource_link", id });
     }
   };
 
@@ -988,6 +1550,78 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+
+          {/* Manage Resources Accordion */}
+          <div>
+            <button 
+              onClick={() => toggleSection("resources")}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition-all text-gray-600 hover:bg-gray-50 ${activeTab === "resources" ? "text-primary font-bold" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <Link2 className="w-5 h-5 shrink-0" />
+                <span>Manage Resources</span>
+              </div>
+              {expandedSections.resources ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            </button>
+            {expandedSections.resources && (
+              <div className="ml-9 pl-2 border-l border-gray-100 mt-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveTab("resources");
+                    setTimeout(() => document.getElementById("add-category-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  Manage Categories
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab("resources");
+                    setTimeout(() => document.getElementById("add-link-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  Manage Links
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manage Banners Accordion */}
+          <div>
+            <button 
+              onClick={() => toggleSection("banners")}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition-all text-gray-600 hover:bg-gray-50 ${activeTab === "banners" ? "text-primary font-bold" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <Image className="w-5 h-5 shrink-0" />
+                <span>Manage Banners</span>
+              </div>
+              {expandedSections.banners ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            </button>
+            {expandedSections.banners && (
+              <div className="ml-9 pl-2 border-l border-gray-100 mt-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveTab("banners");
+                    setTimeout(() => document.getElementById("add-banner-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  + Add New Banner
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab("banners");
+                    setTimeout(() => document.getElementById("existing-banners-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  View Banners
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1030,7 +1664,7 @@ export default function AdminPage() {
             </div>
 
             {/* Metrics Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Card 1: Total Enquiries */}
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover-lift transition-all duration-300 flex items-center justify-between">
                 <div className="space-y-1">
@@ -1063,6 +1697,17 @@ export default function AdminPage() {
                 </div>
                 <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-500">
                   <Layers className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Card 4: Dynamic Banners */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover-lift transition-all duration-300 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Dynamic Banners</p>
+                  <p className="text-3xl font-black text-gray-900 tracking-tight">{stats?.counts?.banners ?? 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500">
+                  <Image className="w-6 h-6" />
                 </div>
               </div>
             </div>
@@ -1221,7 +1866,7 @@ export default function AdminPage() {
             {/* Quick Actions Shortcuts */}
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
               <h4 className="text-lg font-bold text-gray-900 mb-4">Quick Management Shortcuts</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <button 
                   onClick={() => setActiveTab("courses")} 
                   className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
@@ -1249,6 +1894,20 @@ export default function AdminPage() {
                 >
                   <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Banner Pop-ups</p>
                   <p className="text-xs text-gray-400 mt-1">Adjust overlay promotions and alerts.</p>
+                </button>
+                <button 
+                  onClick={() => setActiveTab("resources")} 
+                  className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Manage Resources</p>
+                  <p className="text-xs text-gray-400 mt-1">Configure categories and dropdown menu links.</p>
+                </button>
+                <button 
+                  onClick={() => setActiveTab("banners")} 
+                  className="p-4 rounded-2xl border border-gray-100 hover:border-primary/20 bg-gray-50/50 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <p className="font-bold text-gray-800 text-sm group-hover:text-primary">Manage Banners</p>
+                  <p className="text-xs text-gray-400 mt-1">Configure home and batches carousels.</p>
                 </button>
               </div>
             </div>
@@ -1352,9 +2011,21 @@ export default function AdminPage() {
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Duration</label><input required type="text" placeholder="e.g. 1 Year" value={courseForm.duration} onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Timing</label><input required type="text" placeholder="e.g. Morning & Evening" value={courseForm.timing} onChange={(e) => setCourseForm({ ...courseForm, timing: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Default Fees (₹)</label><input type="number" min="0" step="1" placeholder="e.g. 36000" value={courseForm.fees} onChange={(e) => setCourseForm({ ...courseForm, fees: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Default Discount (%)</label><input type="number" min="0" max="100" step="0.01" placeholder="e.g. 15" value={courseForm.discount_percent} onChange={(e) => setCourseForm({ ...courseForm, discount_percent: e.target.value })} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" /></div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Mode of learning</label>
+                    <select
+                      value={courseForm.mode_of_learning || "Offline (Hybrid )"}
+                      onChange={(e) => setCourseForm({ ...courseForm, mode_of_learning: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none bg-white transition-all cursor-pointer text-sm"
+                    >
+                      <option value="Online">Online</option>
+                      <option value="Offline (Hybrid )">Offline (Hybrid )</option>
+                      <option value="Recorded">Recorded</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="border border-gray-200 rounded-2xl p-6 bg-gray-50/50 space-y-4">
@@ -1373,8 +2044,8 @@ export default function AdminPage() {
                   ) : (
                     <div className="space-y-3">
                       {courseForm.fee_plans.map((plan, idx) => (
-                        <div key={idx} className="flex gap-2 items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-fadeIn">
-                          <div className="flex-1">
+                        <div key={idx} className="flex gap-2 items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-fadeIn flex-wrap sm:flex-nowrap">
+                          <div className="flex-1 min-w-[120px]">
                             <input
                               required
                               type="text"
@@ -1384,7 +2055,7 @@ export default function AdminPage() {
                               className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all"
                             />
                           </div>
-                          <div className="w-28">
+                          <div className="w-24 sm:w-28">
                             <input
                               required
                               type="number"
@@ -1395,7 +2066,7 @@ export default function AdminPage() {
                               className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all"
                             />
                           </div>
-                          <div className="w-24">
+                          <div className="w-20 sm:w-24">
                             <input
                               required
                               type="number"
@@ -1408,10 +2079,21 @@ export default function AdminPage() {
                               className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all"
                             />
                           </div>
+                          <div className="w-32 sm:w-36">
+                            <select
+                              value={plan.mode_of_learning || "Offline (Hybrid )"}
+                              onChange={(e) => changeFeePlanRow(idx, "mode_of_learning", e.target.value)}
+                              className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white cursor-pointer"
+                            >
+                              <option value="Online">Online</option>
+                              <option value="Offline (Hybrid )">Offline (Hybrid )</option>
+                              <option value="Recorded">Recorded</option>
+                            </select>
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeFeePlanRow(idx)}
-                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1527,6 +2209,7 @@ export default function AdminPage() {
                                         <span className="ml-1 text-green-700 bg-green-50 px-1.5 py-0.5 rounded text-[10px] font-semibold">-{pricing.discount}%</span>
                                       </p>
                                     )}
+                                    <p className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-semibold w-fit mt-1 uppercase tracking-wider">{course.mode_of_learning || "Offline (Hybrid )"}</p>
                                   </div>
                                 ) : <span className="text-gray-400">-</span>}
                               </td>
@@ -1539,7 +2222,7 @@ export default function AdminPage() {
                                       const planFinal = planFees - (planFees * planDiscount) / 100;
                                       return (
                                         <div key={plan.id} className="text-xs flex items-center gap-1.5 flex-wrap">
-                                          <span className="bg-primary/5 text-primary px-1.5 py-0.5 rounded text-[10px] font-semibold">{plan.duration}</span>
+                                          <span className="bg-primary/5 text-primary px-1.5 py-0.5 rounded text-[10px] font-semibold">{plan.duration} ({plan.mode_of_learning || "Offline (Hybrid )"})</span>
                                           <span className="font-bold text-gray-800">₹{formatIndianCurrency(planFinal)}</span>
                                           {planDiscount > 0 && <span className="text-[10px] text-green-600">(-{planDiscount}%)</span>}
                                         </div>
@@ -1608,7 +2291,7 @@ export default function AdminPage() {
                               const planFinal = planFees - (planFees * planDiscount) / 100;
                               return (
                                 <span key={plan.id} className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded font-semibold">
-                                  {plan.duration}: ₹{formatIndianCurrency(planFinal)}{planDiscount > 0 && ` (-${planDiscount}%)`}
+                                  {plan.duration} ({plan.mode_of_learning || "Offline (Hybrid )"}): ₹{formatIndianCurrency(planFinal)}{planDiscount > 0 && ` (-${planDiscount}%)`}
                                 </span>
                               );
                             })}
@@ -1737,6 +2420,18 @@ export default function AdminPage() {
                     onCloseFullScreen={() => setIsEditorFullScreen(false)}
                   />
                 </div>
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="blog-bypass-layout"
+                    checked={blogForm.bypass_layout}
+                    onChange={(e) => setBlogForm({ ...blogForm, bypass_layout: e.target.checked })}
+                    className="rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                  />
+                  <label htmlFor="blog-bypass-layout" className="text-sm font-bold text-gray-700 cursor-pointer select-none">
+                    Bypass Standard Layout (Render raw HTML page content directly, hiding headers/footers)
+                  </label>
+                </div>
                 {blogValidationError && <p className="text-sm text-red-500">{blogValidationError}</p>}
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Publish Date & Time (Optional)</label>
@@ -1756,6 +2451,44 @@ export default function AdminPage() {
                       Current image is preserved. Upload a new one to replace it.
                     </p>
                   )}
+                </div>
+                {/* SEO & Geo Optimization Section */}
+                <div className="border border-gray-200 rounded-2xl p-6 bg-gray-50/50 space-y-4">
+                  <h4 className="text-sm font-bold text-gray-900">SEO & Local Geo-Tagging Optimization (Optional)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Meta Title</label>
+                      <input type="text" placeholder="e.g. Best Commerce Academy in Pune" value={blogForm.meta_title} onChange={e => setBlogForm({...blogForm, meta_title: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Meta Keywords (Comma separated)</label>
+                      <input type="text" placeholder="e.g. commerce, CA Foundation, Pune" value={blogForm.meta_keywords} onChange={e => setBlogForm({...blogForm, meta_keywords: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Meta Description</label>
+                    <textarea rows={2} placeholder="A short description boosting click rates in search engines" value={blogForm.meta_description} onChange={e => setBlogForm({...blogForm, meta_description: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Geo Region</label>
+                      <input type="text" placeholder="e.g. IN-MH" value={blogForm.geo_region} onChange={e => setBlogForm({...blogForm, geo_region: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Geo Placename</label>
+                      <input type="text" placeholder="e.g. Pune" value={blogForm.geo_placename} onChange={e => setBlogForm({...blogForm, geo_placename: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Geo Position (Latitude;Longitude)</label>
+                      <input type="text" placeholder="e.g. 18.5204;73.8567" value={blogForm.geo_position} onChange={e => setBlogForm({...blogForm, geo_position: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">ICBM Coordinates (Latitude, Longitude)</label>
+                      <input type="text" placeholder="e.g. 18.5204, 73.8567" value={blogForm.icbm} onChange={e => setBlogForm({...blogForm, icbm: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                    </div>
+                  </div>
                 </div>
                 <button disabled={blogSubmitting} type="submit" className="btn-primary w-full py-4 mt-4 text-lg disabled:opacity-60 disabled:cursor-not-allowed">
                   {blogSubmitting ? "Saving..." : editingBlog ? "Update Blog" : "Publish Blog"}
@@ -1931,9 +2664,68 @@ export default function AdminPage() {
                   <label className="block text-sm font-bold text-gray-700 mb-1">Answer</label>
                   <textarea required rows={4} value={faqForm.answer} onChange={e => setFaqForm({...faqForm, answer: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all"></textarea>
                 </div>
+
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
+                  <h4 className="text-sm font-bold text-gray-800">SEO & Geo Targeting Metadata (Optional)</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Meta Title</label>
+                      <input type="text" value={faqForm.meta_title} onChange={e => setFaqForm({...faqForm, meta_title: e.target.value})} placeholder="e.g. CA Foundation Course Duration FAQ" className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Meta Description</label>
+                      <input type="text" value={faqForm.meta_description} onChange={e => setFaqForm({...faqForm, meta_description: e.target.value})} placeholder="e.g. Details about CA Foundation coaching duration..." className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Geo Region</label>
+                      <input type="text" value={faqForm.geo_region} onChange={e => setFaqForm({...faqForm, geo_region: e.target.value})} placeholder="e.g. IN-MH" className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Geo Placename</label>
+                      <input type="text" value={faqForm.geo_placename} onChange={e => setFaqForm({...faqForm, geo_placename: e.target.value})} placeholder="e.g. Pune" className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Geo Position</label>
+                      <input type="text" value={faqForm.geo_position} onChange={e => setFaqForm({...faqForm, geo_position: e.target.value})} placeholder="e.g. 18.5204;73.8567" className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">ICBM Coordinates</label>
+                      <input type="text" value={faqForm.icbm} onChange={e => setFaqForm({...faqForm, icbm: e.target.value})} placeholder="e.g. 18.5204, 73.8567" className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
+                    </div>
+                  </div>
+                </div>
+
                 <button type="submit" className="btn-primary w-full py-4 mt-4 text-lg">{editingFaq ? "Update FAQ" : "Add FAQ"}</button>
               </form>
+
+              <div className="border-t border-gray-100 pt-6 mt-6">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-50/70 p-5 rounded-2xl border border-gray-200">
+                  <div className="text-center md:text-left">
+                    <h4 className="text-sm font-bold text-gray-800">Bulk Import FAQs</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">Upload multiple FAQs with SEO metadata using a JSON or TXT file.</p>
+                  </div>
+                  <div className="flex gap-2.5 flex-wrap justify-center">
+                    <button
+                      type="button"
+                      onClick={handleDownloadSampleFaqJson}
+                      className="px-3.5 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-xs font-bold hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm"
+                    >
+                      Download Sample File
+                    </button>
+                    <label className="px-3.5 py-2 bg-secondary/10 text-secondary border border-secondary/20 rounded-lg text-xs font-bold hover:bg-secondary/20 transition-all cursor-pointer shadow-sm">
+                      Import File (JSON/TXT)
+                      <input
+                        type="file"
+                        accept=".json,.txt"
+                        className="hidden"
+                        onChange={handleImportFaqJson}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div id="existing-faqs-section">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Live Dynamic FAQs</h3>
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -1959,6 +2751,25 @@ export default function AdminPage() {
                             <td className="p-4">
                               <p className="font-bold text-gray-900">{faq.question}</p>
                               <p className="text-sm text-gray-500 mt-1 max-w-xl">{faq.answer}</p>
+                              {(faq.meta_title || faq.meta_description || faq.geo_region) && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {faq.meta_title && (
+                                    <span className="text-[10px] text-gray-600 bg-gray-100 border px-1.5 py-0.5 rounded font-mono">
+                                      Title: {faq.meta_title}
+                                    </span>
+                                  )}
+                                  {faq.meta_description && (
+                                    <span className="text-[10px] text-gray-600 bg-gray-100 border px-1.5 py-0.5 rounded font-mono">
+                                      Desc: {faq.meta_description.length > 40 ? faq.meta_description.slice(0, 40) + "..." : faq.meta_description}
+                                    </span>
+                                  )}
+                                  {faq.geo_region && (
+                                    <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-mono">
+                                      Geo: {faq.geo_region} ({faq.geo_placename || "No Placename"})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -1991,6 +2802,12 @@ export default function AdminPage() {
                       </div>
                       <p className="font-bold text-gray-900 text-sm">{faq.question}</p>
                       <p className="text-xs text-gray-500 leading-relaxed">{faq.answer}</p>
+                      {(faq.meta_title || faq.geo_region) && (
+                        <div className="flex flex-wrap gap-1 mt-1 text-[9px] text-gray-500 font-mono">
+                          {faq.meta_title && <span>SEO: {faq.meta_title} | </span>}
+                          {faq.geo_region && <span>Geo: {faq.geo_region}</span>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2174,6 +2991,391 @@ export default function AdminPage() {
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESOURCES */}
+        {activeTab === "resources" && (
+          <div className="space-y-10 animate-fadeIn">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+              <div>
+                <h3 className="text-3xl font-extrabold text-gray-900 tracking-tight">Manage Resources</h3>
+                <p className="text-gray-500 text-sm mt-1">Configure dropdown menu categories and grouped sub-links.</p>
+              </div>
+              <button onClick={fetchResources} disabled={resourceLoading} className="btn-primary px-4 py-2 flex items-center gap-2 text-sm">
+                <RefreshCw className={`w-4 h-4 ${resourceLoading ? 'animate-spin' : ''}`} /> 
+                {resourceLoading ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* CATEGORIES SECTION (Left Column, col-span-5) */}
+              <div className="lg:col-span-5 space-y-8">
+                {/* Add/Edit Category Form */}
+                <div id="add-category-section" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-gray-900">{editingCategory ? "Edit Category" : "Add Resource Category"}</h4>
+                    {editingCategory && (
+                      <button onClick={cancelCategoryEdit} className="text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Cancel</button>
+                    )}
+                  </div>
+                  <form onSubmit={handleCategorySubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Category Name</label>
+                      <input required type="text" placeholder="e.g. 12th Commerce" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Ranking (Ascending order)</label>
+                      <input required type="number" min="0" placeholder="e.g. 1" value={categoryForm.ranking} onChange={e => setCategoryForm({...categoryForm, ranking: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                    </div>
+                    <button type="submit" className="btn-primary w-full py-2.5 text-sm">{editingCategory ? "Update Category" : "Add Category"}</button>
+                  </form>
+                </div>
+
+                {/* Existing Categories List */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Existing Categories</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-xs border-b">
+                          <th className="p-3">Name</th>
+                          <th className="p-3">Rank</th>
+                          <th className="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resourceCategories.length === 0 ? (
+                          <tr><td colSpan={3} className="text-center p-4 text-gray-400 italic">No categories found</td></tr>
+                        ) : (
+                          resourceCategories.map((cat) => (
+                            <tr key={cat.id} className="border-b hover:bg-gray-50 transition-colors">
+                              <td className="p-3 font-semibold text-gray-900">{cat.name}</td>
+                              <td className="p-3 text-gray-600">{cat.ranking}</td>
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button onClick={() => handleEditCategory(cat)} className="text-blue-500 bg-blue-50 p-1.5 rounded hover:bg-blue-100 transition-colors" title="Edit"><Edit className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => handleDeleteCategory(cat.id)} className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmDelete?.type === "resource_category" && confirmDelete.id === cat.id ? "bg-red-600 text-white hover:bg-red-700 px-2 py-1" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                    {confirmDelete?.type === "resource_category" && confirmDelete.id === cat.id ? "Confirm?" : <Trash2 className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* LINKS SECTION (Right Column, col-span-7) */}
+              <div className="lg:col-span-7 space-y-8">
+                {/* Add/Edit Link Form */}
+                <div id="add-link-section" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-gray-900">{editingLink ? "Edit Resource Link" : "Add Resource Link"}</h4>
+                    {editingLink && (
+                      <button onClick={cancelLinkEdit} className="text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Cancel</button>
+                    )}
+                  </div>
+                  <form onSubmit={handleLinkSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                        <select required value={linkForm.category_id} onChange={e => setLinkForm({...linkForm, category_id: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all bg-white">
+                          <option value="">Select Category</option>
+                          {resourceCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Group Heading (Optional)</label>
+                        <input type="text" placeholder="e.g. Score Vs Percentile" value={linkForm.group_name} onChange={e => setLinkForm({...linkForm, group_name: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Link Title</label>
+                        <input required type="text" placeholder="e.g. Syllabus Guide" value={linkForm.title} onChange={e => setLinkForm({...linkForm, title: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Link URL (Optional if Page Content written)</label>
+                        <input type="text" placeholder="e.g. /batches or https://..." value={linkForm.url} onChange={e => setLinkForm({...linkForm, url: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Ranking (Ascending order within Group)</label>
+                      <input required type="number" min="0" placeholder="e.g. 1" value={linkForm.ranking} onChange={e => setLinkForm({...linkForm, ranking: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Page Content (Optional - if written, page is created internally)</label>
+                      <RichTextEditor
+                        value={linkForm.content}
+                        onChange={(value) => setLinkForm({ ...linkForm, content: value })}
+                        isFullScreen={isEditorFullScreen}
+                        onCloseFullScreen={() => setIsEditorFullScreen(false)}
+                      />
+                    </div>
+                    {linkForm.content && (
+                      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 p-4 rounded-xl animate-fadeIn">
+                        <input
+                          type="checkbox"
+                          id="link-bypass-layout"
+                          checked={linkForm.bypass_layout}
+                          onChange={(e) => setLinkForm({ ...linkForm, bypass_layout: e.target.checked })}
+                          className="rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <label htmlFor="link-bypass-layout" className="text-xs font-bold text-gray-700 cursor-pointer select-none">
+                          Bypass Standard Layout (Render raw HTML page content directly, hiding headers/footers)
+                        </label>
+                      </div>
+                    )}
+                    {/* SEO & Geo Optimization Section */}
+                    <div className="border border-gray-200 rounded-2xl p-6 bg-gray-50/50 space-y-4">
+                      <h5 className="text-xs font-bold text-gray-900">SEO & Local Geo-Tagging Optimization (Optional)</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Meta Title</label>
+                          <input type="text" placeholder="e.g. CA Prep Material Pune" value={linkForm.meta_title} onChange={e => setLinkForm({...linkForm, meta_title: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Meta Keywords</label>
+                          <input type="text" placeholder="e.g. syllabus, CA exams" value={linkForm.meta_keywords} onChange={e => setLinkForm({...linkForm, meta_keywords: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Meta Description</label>
+                        <textarea rows={2} placeholder="A short description boosting click rates in search engines" value={linkForm.meta_description} onChange={e => setLinkForm({...linkForm, meta_description: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Geo Region</label>
+                          <input type="text" placeholder="e.g. IN-MH" value={linkForm.geo_region} onChange={e => setLinkForm({...linkForm, geo_region: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Geo Placename</label>
+                          <input type="text" placeholder="e.g. Pune" value={linkForm.geo_placename} onChange={e => setLinkForm({...linkForm, geo_placename: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Geo Position</label>
+                          <input type="text" placeholder="e.g. 18.5204;73.8567" value={linkForm.geo_position} onChange={e => setLinkForm({...linkForm, geo_position: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ICBM Coordinates</label>
+                          <input type="text" placeholder="e.g. 18.5204, 73.8567" value={linkForm.icbm} onChange={e => setLinkForm({...linkForm, icbm: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white focus:ring-2 focus:ring-primary" />
+                        </div>
+                      </div>
+                    </div>
+                    <button type="submit" disabled={resourceCategories.length === 0} className="btn-primary w-full py-2.5 text-sm disabled:opacity-50">
+                      {resourceCategories.length === 0 ? "Add a category first" : (editingLink ? "Update Link" : "Add Link")}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Existing Links List */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Existing Resource Links</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-xs border-b">
+                          <th className="p-3">Category</th>
+                          <th className="p-3">Link Info</th>
+                          <th className="p-3">Group</th>
+                          <th className="p-3">Rank</th>
+                          <th className="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resourceLinks.length === 0 ? (
+                          <tr><td colSpan={5} className="text-center p-4 text-gray-400 italic">No links found</td></tr>
+                        ) : (
+                          resourceLinks.map((link) => {
+                            const catName = resourceCategories.find(c => c.id === link.category_id)?.name || `ID: ${link.category_id}`;
+                            return (
+                              <tr key={link.id} className="border-b hover:bg-gray-50 transition-colors">
+                                <td className="p-3 text-xs font-semibold text-gray-500">
+                                  <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded">{catName}</span>
+                                </td>
+                                <td className="p-3">
+                                  <p className="font-bold text-gray-900">{link.title}</p>
+                                  <a href={link.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5 truncate max-w-[200px]">
+                                    {link.url} <ExternalLink className="w-3 h-3 shrink-0" />
+                                  </a>
+                                </td>
+                                <td className="p-3 text-gray-600 text-xs font-semibold">
+                                  {link.group_name ? <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">{link.group_name}</span> : <span className="text-gray-400 italic">None</span>}
+                                </td>
+                                <td className="p-3 text-gray-600">{link.ranking}</td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button onClick={() => handleEditLink(link)} className="text-blue-500 bg-blue-50 p-1.5 rounded hover:bg-blue-100 transition-colors" title="Edit"><Edit className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => handleDeleteLink(link.id)} className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmDelete?.type === "resource_link" && confirmDelete.id === link.id ? "bg-red-600 text-white hover:bg-red-700 px-2 py-1" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                      {confirmDelete?.type === "resource_link" && confirmDelete.id === link.id ? "Confirm?" : <Trash2 className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* BANNERS */}
+        {activeTab === "banners" && (
+          <div className="space-y-10 animate-fadeIn">
+            <div id="add-banner-section" className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-fit">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Image className="w-8 h-8 text-secondary" />
+                  <h3 className="text-2xl font-bold text-gray-900">{editingBanner ? "Edit Banner" : "Add New Banner"}</h3>
+                </div>
+                {editingBanner && (
+                  <button onClick={cancelBannerEdit} className="text-sm font-semibold text-gray-600 hover:text-gray-900">Cancel</button>
+                )}
+              </div>
+              <form onSubmit={handleBannerSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Banner Title</label>
+                  <input required type="text" value={bannerForm.title} onChange={e => setBannerForm({...bannerForm, title: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Target Page</label>
+                    <select 
+                      value={bannerForm.page} 
+                      onChange={e => setBannerForm({...bannerForm, page: e.target.value})} 
+                      className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all bg-white"
+                    >
+                      <option value="index">Homepage</option>
+                      <option value="batches">Batches Page</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Priority Ranking (Ascending)</label>
+                    <input required type="number" min="0" step="1" value={bannerForm.ranking} onChange={e => setBannerForm({...bannerForm, ranking: e.target.value})} className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Status</label>
+                    <select 
+                      value={bannerForm.is_active} 
+                      onChange={e => setBannerForm({...bannerForm, is_active: e.target.value})} 
+                      className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition-all bg-white"
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Desktop Image File (21:6 Aspect Ratio Recommended)</label>
+                    <input type="file" accept="image/*" onChange={(e) => setBannerForm({ ...bannerForm, desktop_file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" />
+                    {editingBanner && editingBanner.desktop_image_url && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <img src={editingBanner.desktop_image_url} alt="" className="w-32 h-12 rounded object-cover border" />
+                        <p className="text-xs text-gray-500">Current desktop image.</p>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Mobile Image File (4:3 / 16:9 Aspect Ratio Recommended)</label>
+                    <input type="file" accept="image/*" onChange={(e) => setBannerForm({ ...bannerForm, mobile_file: e.target.files?.[0] || null })} className="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" />
+                    {editingBanner && editingBanner.mobile_image_url && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <img src={editingBanner.mobile_image_url} alt="" className="w-16 h-12 rounded object-cover border" />
+                        <p className="text-xs text-gray-500">Current mobile image.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button disabled={bannerSubmitting} type="submit" className="btn-primary w-full py-4 mt-4 text-lg">
+                  {bannerSubmitting ? "Saving..." : editingBanner ? "Update Banner" : "Add Banner"}
+                </button>
+              </form>
+            </div>
+
+            <div id="existing-banners-section">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Existing Banners</h3>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-sm border-b">
+                        <th className="p-4">Page</th>
+                        <th className="p-4">Preview Images (Desktop / Mobile)</th>
+                        <th className="p-4">Title &amp; Rank</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {banners.length === 0 ? (
+                        <tr><td colSpan={5} className="text-center p-6 text-gray-500">No banners uploaded yet.</td></tr>
+                      ) : (
+                        banners.map((banner) => (
+                          <tr key={banner.id} className="border-b hover:bg-gray-50 transition-colors">
+                            <td className="p-4 font-semibold text-gray-900 capitalize">
+                              {banner.page === "index" ? "Homepage" : "Batches Page"}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-4">
+                                <div className="text-center">
+                                  <img src={banner.desktop_image_url} alt="Desktop Preview" className="w-28 h-10 rounded object-cover border shadow-sm" />
+                                  <span className="text-[10px] text-gray-400 font-bold block mt-1">Desktop</span>
+                                </div>
+                                <div className="text-center">
+                                  <img src={banner.mobile_image_url} alt="Mobile Preview" className="w-10 h-10 rounded object-cover border shadow-sm" />
+                                  <span className="text-[10px] text-gray-400 font-bold block mt-1">Mobile</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <p className="font-bold text-gray-900">{banner.title}</p>
+                              <p className="text-xs text-gray-500 mt-1">Ranking Priority: {banner.ranking}</p>
+                            </td>
+                            <td className="p-4">
+                              <button
+                                onClick={() => handleToggleBannerActive(banner)}
+                                className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                                  banner.is_active 
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" 
+                                    : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+                                }`}
+                              >
+                                {banner.is_active ? "Active" : "Inactive"}
+                              </button>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleEditBanner(banner)} className="text-blue-500 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition-colors" aria-label="Edit Banner"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteBanner(banner.id)} className={`p-2 rounded-lg transition-colors text-xs font-bold ${confirmDelete?.type === "banner" && confirmDelete.id === banner.id ? "bg-red-600 text-white hover:bg-red-700 px-3" : "text-red-500 bg-red-50 hover:bg-red-100"}`}>
+                                  {confirmDelete?.type === "banner" && confirmDelete.id === banner.id ? "Confirm?" : <Trash2 className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
