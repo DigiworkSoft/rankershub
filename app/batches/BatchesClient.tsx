@@ -21,36 +21,6 @@ const BATCH_SUBTITLE_BY_TITLE: Record<string, string> = {
 
 
 
-const defaultFaqSections = [
-  {
-    title: "Admission FAQs",
-
-    items: [
-      { q: "How can I take admission for 11th or 12th Commerce?", a: "You can apply online through our website or visit our institute for direct admission." },
-      { q: "When does admission start?", a: "Admissions usually start after 10th and 11th results are declared." },
-      { q: "Is there any entrance test for admission?", a: "No, admission is based on previous academic performance." },
-      { q: "Do you offer demo lectures?", a: "Yes, we provide demo lectures before admission." },
-      { q: "What documents are required for admission?", a: "Marksheet, school leaving certificate, and passport-size photos." },
-    ],
-  },
-  {
-    title: "Syllabus FAQs",
-
-    items: [
-      { q: "Do you follow the Maharashtra Board syllabus?", a: "Yes, we strictly follow the Maharashtra State Board syllabus." },
-      { q: "Is the syllabus completed on time?", a: "Yes, we complete the syllabus well before exams." },
-      { q: "Do you provide notes for all subjects?", a: "Yes, we provide easy-to-understand notes and study material." },
-    ],
-  },
-  {
-    title: "Subjects FAQs",
-    items: [
-      { q: "Which subjects are covered in Commerce?", a: "Accounts, Economics, Business Studies, Maths/IT, and Organization of Commerce." },
-      { q: "Is Maths compulsory in Commerce?", a: "No, Maths is optional; you can choose IT instead." },
-      { q: "Do you teach basics for weak students?", a: "Yes, we focus on strong fundamentals for all students." },
-    ],
-  },
-];
 
 type Video = { id: number; title: string; youtube_url: string };
 type Faq = { id: number; category: string; question: string; answer: string };
@@ -244,7 +214,7 @@ export default function BatchesClient({ videos, faqs, courses, banners }: Batche
   }, [courses]);
 
   const mergedFaqSections = useMemo(() => {
-    const combined = defaultFaqSections.map((s) => ({ ...s, items: [...s.items] }));
+    const combined: Array<{ title: string; items: Array<{ q: string; a: string }> }> = [];
     faqs.forEach((faq) => {
       let section = combined.find((s) => s.title === faq.category);
       if (!section) {

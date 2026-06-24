@@ -204,3 +204,21 @@ SELECT * FROM (
     ('Default Batches Banner', '/assets/photos/batch.webp', '/assets/photos/batch2.webp', 'batches', 1, TRUE)
 ) AS v(title, desktop_image_url, mobile_image_url, page, ranking, is_active)
 WHERE NOT EXISTS (SELECT 1 FROM banners);
+
+-- Seed default FAQs (only if empty)
+INSERT INTO faqs (category, question, answer, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm)
+SELECT * FROM (
+  VALUES
+    ('Admission FAQs', 'How can I take admission for 11th or 12th Commerce?', 'You can apply online through our website or visit our institute for direct admission.', '11th/12th Commerce Admissions FAQ', 'Find out how to take direct or online admission for our 11th and 12th commerce coaching classes.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Admission FAQs', 'When does admission start?', 'Admissions usually start after 10th and 11th results are declared.', 'Admissions Start Date FAQ', 'Learn when admissions open for the new batches at RankersHub.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Admission FAQs', 'Is there any entrance test for admission?', 'No, admission is based on previous academic performance.', 'Entrance Exam FAQ', 'Check the entrance test requirements for RankersHub commerce classes.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Admission FAQs', 'Do you offer demo lectures?', 'Yes, we provide demo lectures before admission.', 'Demo Lectures FAQ', 'Read about how you can attend our free demo lectures before taking admission.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Admission FAQs', 'What documents are required for admission?', 'Marksheet, school leaving certificate, and passport-size photos.', 'Required Admission Documents FAQ', 'List of documents required to complete your admission process.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Syllabus FAQs', 'Do you follow the Maharashtra Board syllabus?', 'Yes, we strictly follow the Maharashtra State Board syllabus.', 'Maharashtra Board Syllabus FAQ', 'Details on how our coaching aligns with the Maharashtra State Board curriculum.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Syllabus FAQs', 'Is the syllabus completed on time?', 'Yes, we complete the syllabus well before exams.', 'Syllabus Completion FAQ', 'Learn about our lecture timeline and revision schedules.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Syllabus FAQs', 'Do you provide notes for all subjects?', 'Yes, we provide easy-to-understand notes and study material.', 'Commerce Study Notes FAQ', 'Details about books, test series, and study materials provided to students.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Subjects FAQs', 'Which subjects are covered in Commerce?', 'Accounts, Economics, Business Studies, Maths/IT, and Organization of Commerce.', 'Commerce Subjects Covered FAQ', 'A comprehensive list of junior college commerce subjects we teach.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Subjects FAQs', 'Is Maths compulsory in Commerce?', 'No, Maths is optional; you can choose IT instead.', 'Commerce Maths Optional FAQ', 'Information on choosing Math vs Secretarial Practice or Information Technology.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567'),
+    ('Subjects FAQs', 'Do you teach basics for weak students?', 'Yes, we focus on strong fundamentals for all students.', 'Basics & Fundamental Classes FAQ', 'How we support students with foundation concepts and individualized care.', 'IN-MH', 'Pune', '18.5204;73.8567', '18.5204, 73.8567')
+) AS v(category, question, answer, meta_title, meta_description, geo_region, geo_placename, geo_position, icbm)
+WHERE NOT EXISTS (SELECT 1 FROM faqs);
