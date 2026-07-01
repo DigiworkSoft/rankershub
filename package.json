@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate:sitemap": "node scripts/generate-sitemap.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3",
@@ -21,7 +22,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-quill": "^2.0.0",
-    "sanitize-html": "^2.17.3"
+    "sanitize-html": "^2.17.3",
+    "xmlbuilder2": "^3.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
