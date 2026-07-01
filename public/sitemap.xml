@@ -1,43 +1,165 @@
-<?xml version="1.0"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <url>
-    <loc>https://www.rankershub.in/about</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/admin</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/admission</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/batches</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/blogs</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/contact</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://www.rankershub.in/videos</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="https://www.xml-sitemaps.com/css/sitemap.css"?>
+<urlset
+      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:fo="http://www.w3.org/1999/XSL/Format"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+<!-- created with Free Online Sitemap Generator www.xml-sitemaps.com -->
+
+
+<url>
+  <loc>https://www.rankershub.in/</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/about</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/batches</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/videos</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/contact</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs?tag=11th</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs?tag=12th</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs?tag=Commerce</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs?tag=Mathematics</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/40</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/38</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/39</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/27</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/26</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/24</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/30</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/31</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/33</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/29</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/28</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/35</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/34</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/19</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/18</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/17</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/15</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/13</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/8</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.rankershub.in/blogs/21</loc>
+  <lastmod>2026-07-01T13:41:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+
 </urlset>
