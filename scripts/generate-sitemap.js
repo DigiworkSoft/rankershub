@@ -10,7 +10,7 @@ const { create } = require('xmlbuilder2');
 
 // ----- Configuration -------------------------------------------------------
 // Base URL of the site (including protocol and domain). Update this if needed.
-const BASE_URL = process.env.BASE_URL || 'https://www.rankershub.com';
+const BASE_URL = process.env.BASE_URL || 'https://www.rankershub.in';
 
 // List of locale strings for hreflang. Example: ['en-US', 'fr-FR']
 // Keep empty array if you do not need language/region specific URLs.
